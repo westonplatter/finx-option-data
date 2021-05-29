@@ -1,0 +1,11 @@
+boto3
+fsspec
+pandas
+psycopg2-binary
+pyarrow
+python-dotenv
+pytz
+requests
+s3fs
+sqlalchemy
+td-ameritrade-python-api

@@ -1,0 +1,31 @@
+name: finx_option_data
+
+channels:
+    - default
+
+dependencies:
+    - python=3.7
+    - boto3
+    - click
+    - pandas >= 1.0.0
+    - psycopg2
+    - pyarrow
+    - numpy
+    - requests
+    - s3fs
+    - sqlalchemy
+    # test resources
+    - pytest
+    - pip
+    - pip:
+        # - dbt
+        - awslambdaric # https://docs.aws.amazon.com/lambda/latest/dg/python-image.html
+        - fsspec
+        - python-dotenv
+        - pytz
+        - td-ameritrade-python-api        
+        # dev
+        - ipdb
+        - loguru
+        # - "--editable ."
+        # testing resources
