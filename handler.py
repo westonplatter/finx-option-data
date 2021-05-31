@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 from datetime import datetime, timedelta
 from click.core import Option
@@ -25,8 +25,18 @@ configs = dotenv_values(".env")
 POSTGRES_CONNECTION_STRING = configs['POSTGRES_CONNECTION_STRING']
 TDA_CLIENT_ID = configs['TDA_CLIENT_ID']
 TDA_REDIRECT_URL = configs['TDA_REDIRECT_URL']
-SYMBOLS = ["SPY", "QQQ"]
 BUCKET_NAME = configs['BUCKET_NAME']
+
+SYMBOLS: List[str] = [
+    "SPY",
+    "QQQ",
+    "TLT",
+    "AMZN",
+    "XLE",
+    "XLK",
+    "AAPL",
+    "USO"
+]
 
 
 # DB models
