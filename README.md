@@ -26,6 +26,5 @@ aws-vault exec ${profile_name} && docker.run.store
 ```
 
 ## .env file
-
-
-
+Fixed with a temp file, 
+https://rasterio.readthedocs.io/en/latest/topics/memory-files.html
