@@ -1,4 +1,6 @@
+import json
 import os
+import tempfile
 from typing import Dict, Tuple, List
 
 from datetime import datetime, timedelta
@@ -52,17 +54,22 @@ def create_engine() -> sqlalchemy.engine:
 
 
 def create_session() -> TDClient:
-    dirname = "/tmp"
-    filename = os.path.join(dirname, "tda_api_creds.json")
+    creds_filename = "/tmp/tda_api_creds.json"
+    with open(creds_filename, "r") as f:
+        creds_data = json.load(f)
 
-    # Create a new session, credentials path is required.
-    TDSession = TDClient(
-        client_id=TDA_CLIENT_ID,
-        redirect_uri=TDA_REDIRECT_URL,
-        credentials_path=filename,
-    )
-    TDSession.login()
-    return TDSession
+    with tempfile.NamedTemporaryFile() as tmpfile:
+        with open(tmpfile.name, "w") as f:
+            json.dump(creds_data, f)
+
+        # Create a new session, credentials path is required.
+        TDSession = TDClient(
+            client_id=TDA_CLIENT_ID,
+            redirect_uri=TDA_REDIRECT_URL,
+            credentials_path=tmpfile.name,
+        )
+        TDSession.login()
+        return TDSession
 
 
 def store_data(session, option_chain) -> None:
