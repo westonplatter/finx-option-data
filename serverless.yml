@@ -1,7 +1,4 @@
 service: finx-option-data
-# app and org for use with dashboard.serverless.com
-#app: your-app-name
-#org: your-org-name
 
 # You can pin your service to only deploy with a specific Serverless version
 # Check out our docs for more details
@@ -9,11 +6,14 @@ frameworkVersion: '2'
 
 provider:
   name: aws
-  runtime: python3.7
-
-# you can overwrite defaults here
-#  stage: dev
-#  region: us-east-1
+  stage: dev # change to prod
+  region: 'us-east-1'
+  lambdaHashingVersion: 20201221
+  ecr:
+    # In this section you can define images that will be built locally and uploaded to ECR
+    images:
+      appimage:
+        path: ./
 
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
@@ -35,24 +35,22 @@ provider:
 #  environment:
 #    variable1: value1
 
-# you can add packaging information here
-#package:
-#  include:
-#    - include-me.py
-#    - include-me-dir/**
-#  exclude:
-#    - exclude-me.py
-#    - exclude-me-dir/**
-
 functions:
-  hello:
-    handler: handler.hello
+  fetch:
+    timeout: 40
+    image:
+      name: appimage
+      command:
+        - handler.handler_fetch_data
+      entryPoint:
+        - '/lambda-entrypoint.sh'
+
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
 #    events:
-#      - http:
-#          path: users/create
+#      - httpApi:
+#          path: /users/create
 #          method: get
 #      - websocket: $connect
 #      - s3: ${env:BUCKET}
@@ -98,6 +96,3 @@ functions:
 #     NewOutput:
 #       Description: "Description for the output"
 #       Value: "Some output value"
-
-plugins:
-  - serverless-python-requirements

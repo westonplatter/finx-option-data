@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Tuple, List
 
 from datetime import datetime, timedelta
@@ -51,10 +52,7 @@ def create_engine() -> sqlalchemy.engine:
 
 
 def create_session() -> TDClient:
-    # TODO(weston) - make this work for aws lambda functions
-    import os
-
-    dirname = os.path.dirname(__file__)
+    dirname = "/tmp"
     filename = os.path.join(dirname, "tda_api_creds.json")
 
     # Create a new session, credentials path is required.
@@ -108,24 +106,6 @@ def fetch_data(tda_session, symbol) -> Dict:
 
 
 def handler_fetch_data(event, context):
-    # body = {
-    #     "message": "Go Serverless v1.0! Your function executed successfully!",
-    #     "input": event,
-    # }
-
-    # response = {"statusCode": 200, "body": json.dumps(body)}
-
-    # return response
-
-    # # Use this code if you don't use the http event with the LAMBDA-PROXY
-    # # integration
-    # """
-    # return {
-    #     "message": "Go Serverless v1.0! Your function executed successfully!",
-    #     "event": event
-    # }
-    # """
-
     engine = create_engine()
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -142,6 +122,11 @@ def handler_fetch_data(event, context):
         print(f"Storing option chain [{symbol}] - started")
         store_data(session, oc)
         print(f"Storing option chain [{symbol}] - finished")
+    
+    return {
+        "message": f"Successfully fetched option data for: {SYMBOLS}",
+        "event": event
+    }
 
 
 def transform_option_data_to_df(option_data):
@@ -267,3 +252,8 @@ def handler_move_data_to_s3(event, context):
         for _id in ids:
             session.query(OptionData).filter(OptionData.id == _id).delete()
             session.commit()
+    
+    return {
+        "message": f"Successfully moved {len(ids)} rows from DB to S3 and deleted them",
+        "event": event
+    }
