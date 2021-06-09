@@ -2,22 +2,18 @@
 Fetch, store, and warehouse Option Data
 
 ## docker build
-```
-aws_profile_session ${profile_name}
+```sh
 make docker.build
 ```
 
 ## fetching data
-```
+```sh
 # local python
 python cli.py do-fetch-data
-
-# makefile with docker
-make docker.run.fetch
 ```
 
 ## storing data
-```
+```sh
 # local python
 aws-vault exec ${profile_name} -- python cli.py do-move-data-to-s3
 
@@ -26,5 +22,4 @@ aws-vault exec ${profile_name} && docker.run.store
 ```
 
 ## .env file
-Fixed with a temp file, 
-https://rasterio.readthedocs.io/en/latest/topics/memory-files.html
+aws_profile_session ${profile_name}

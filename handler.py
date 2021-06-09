@@ -54,7 +54,7 @@ def create_engine() -> sqlalchemy.engine:
 
 
 def create_session() -> TDClient:
-    creds_filename = "/tmp/tda_api_creds.json"
+    creds_filename = "tda_api_creds.json"
     with open(creds_filename, "r") as f:
         creds_data = json.load(f)
 

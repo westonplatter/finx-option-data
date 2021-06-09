@@ -1,21 +1,9 @@
 # static
-CONDA_ENV ?= finx_option_data
-DOCKER_TAG ?= finx_option_data
+DOCKER_TAG ?= serverless-finx-option-data-dev:appimage
 AWS_REGION ?= us-east-1
-ECR_REPO_NAME ?= qdl-prod
 
 # dynamic
-GET_AWS_ACCOUNT_ID := $$(aws sts get-caller-identity | jq -r .Account)
-
-test:
-	@pytest -s .
-
-env.create:
-	@conda create -y -n ${CONDA_ENV} python=3.7
-
-env.update:
-	@conda env update -n ${CONDA_ENV} -f environment.yml
-
+# GET_AWS_ACCOUNT_ID := $$(aws sts get-caller-identity | jq -r .Account)
 
 docker.build:
 	docker build -t ${DOCKER_TAG} .
@@ -23,29 +11,19 @@ docker.build:
 docker.run:
 	docker run -p 9000:8080 ${DOCKER_TAG}
 
-docker.run.bash:
-	docker run -it ${DOCKER_TAG} /bin/bash
+local.invoke.fetch:
+	curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'   
 
-docker.run.fetch:
-	docker run -i -t ${DOCKER_TAG}
+# docker.run.store:
+# 	docker run \
+# 		--env AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID \
+# 		--env AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY \
+# 		--env AWS_SESSION_TOKEN=$$AWS_SESSION_TOKEN \
+# 		--env AWS_SESSION_EXPIRATION=$$AWS_SESSION_EXPIRATION \
+# 		-it ${DOCKER_TAG}
 
-docker.run.store:
-	docker run \
-		--env AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID \
-		--env AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY \
-		--env AWS_SESSION_TOKEN=$$AWS_SESSION_TOKEN \
-		--env AWS_SESSION_EXPIRATION=$$AWS_SESSION_EXPIRATION \
-		-it ${DOCKER_TAG}
+deploy:
+	sls deploy
 
-ecr.login:
-	aws ecr \
-		get-login-password \
-		--region ${AWS_REGION} \
-		| \
-		docker login \
-		--username AWS \
-		--password-stdin ${GET_AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-	
-ecr.push:
-	docker tag ${DOCKER_TAG}:latest ${GET_AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:latest
-	docker push ${GET_AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:latest
+deploy.prod:
+	sls deploy --stage prod

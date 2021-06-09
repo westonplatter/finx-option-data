@@ -1,12 +1,10 @@
 service: finx-option-data
 
-# You can pin your service to only deploy with a specific Serverless version
-# Check out our docs for more details
 frameworkVersion: '2'
 
 provider:
   name: aws
-  stage: dev # change to prod
+  stage: dev
   region: 'us-east-1'
   lambdaHashingVersion: 20201221
   ecr:
@@ -84,15 +82,3 @@ functions:
 #    Define function environment variables here
 #    environment:
 #      variable2: value2
-
-# you can add CloudFormation resource templates here
-#resources:
-#  Resources:
-#    NewResource:
-#      Type: AWS::S3::Bucket
-#      Properties:
-#        BucketName: my-new-bucket
-#  Outputs:
-#     NewOutput:
-#       Description: "Description for the output"
-#       Value: "Some output value"
