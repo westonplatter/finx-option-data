@@ -12,26 +12,8 @@ provider:
     images:
       appimage:
         path: ./
-
-# you can add statements to the Lambda function's IAM Role here
-#  iamRoleStatements:
-#    - Effect: "Allow"
-#      Action:
-#        - "s3:ListBucket"
-#      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
-#    - Effect: "Allow"
-#      Action:
-#        - "s3:PutObject"
-#      Resource:
-#        Fn::Join:
-#          - ""
-#          - - "arn:aws:s3:::"
-#            - "Ref" : "ServerlessDeploymentBucket"
-#            - "/*"
-
-# you can define service wide environment variables here
-#  environment:
-#    variable1: value1
+  environment:
+    STAGE: ${opt:stage}
 
 functions:
   fetch:
@@ -40,6 +22,14 @@ functions:
       name: appimage
       command:
         - handler.handler_fetch_data
+      entryPoint:
+        - '/lambda-entrypoint.sh'
+  move:
+    timeout: 40
+    image:
+      name: appimage
+      command:
+        - handler.handler_move_data_to_s3
       entryPoint:
         - '/lambda-entrypoint.sh'
 
@@ -78,7 +68,3 @@ functions:
 #          conditions:
 #            host: example.com
 #            path: /hello
-
-#    Define function environment variables here
-#    environment:
-#      variable2: value2
