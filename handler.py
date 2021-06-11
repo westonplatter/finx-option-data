@@ -4,6 +4,11 @@ import tempfile
 from typing import Dict, Tuple, List
 
 from datetime import datetime, timedelta
+from dotenv import dotenv_values
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from pytz import timezone
 import sqlalchemy
 from sqlalchemy.orm import declarative_base
@@ -11,23 +16,20 @@ from sqlalchemy import Column, Integer, String, Integer, BigInteger
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker
 from td.client import TDClient
-import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
-import numpy as np
 
-
-# TODO(weston) make this work with local dev env and aws lambda
-from dotenv import dotenv_values
 
 configs = dotenv_values(".env")
 
-# constants
+
+# constants - data
+BUCKET_NAME = configs["BUCKET_NAME"]
 POSTGRES_CONNECTION_STRING = configs["POSTGRES_CONNECTION_STRING"]
+
+# constants - services
 TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
 TDA_REDIRECT_URL = configs["TDA_REDIRECT_URL"]
-BUCKET_NAME = configs["BUCKET_NAME"]
 
+# contants - financial
 SYMBOLS: List[str] = ["SPY", "QQQ", "TLT", "AMZN", "XLE", "XLK", "AAPL", "USO"]
 
 

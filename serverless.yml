@@ -12,6 +12,8 @@ provider:
     images:
       appimage:
         path: ./
+  environment:
+    STAGE: ${opt:stage}
 
 functions:
   fetch:
