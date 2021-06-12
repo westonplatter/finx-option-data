@@ -13,10 +13,12 @@ provider:
       appimage:
         path: ./
   environment:
-    STAGE: ${opt:stage}
+    STAGE: ${sls:stage}
 
 functions:
   fetch:
+    events:
+      - schedule: cron(* 13-20 ? * MON-FRI *)
     timeout: 40
     image:
       name: appimage
@@ -25,6 +27,8 @@ functions:
       entryPoint:
         - '/lambda-entrypoint.sh'
   move:
+    events:
+      - schedule: cron(15 17,20 ? * MON-FRI *)
     timeout: 40
     image:
       name: appimage
@@ -32,39 +36,3 @@ functions:
         - handler.handler_move_data_to_s3
       entryPoint:
         - '/lambda-entrypoint.sh'
-
-#    The following are a few example events you can configure
-#    NOTE: Please make sure to change your handler code to work with those events
-#    Check the event documentation for details
-#    events:
-#      - httpApi:
-#          path: /users/create
-#          method: get
-#      - websocket: $connect
-#      - s3: ${env:BUCKET}
-#      - schedule: rate(10 minutes)
-#      - sns: greeter-topic
-#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
-#      - alexaSkill: amzn1.ask.skill.xx-xx-xx-xx
-#      - alexaSmartHome: amzn1.ask.skill.xx-xx-xx-xx
-#      - iot:
-#          sql: "SELECT * FROM 'some_topic'"
-#      - cloudwatchEvent:
-#          event:
-#            source:
-#              - "aws.ec2"
-#            detail-type:
-#              - "EC2 Instance State-change Notification"
-#            detail:
-#              state:
-#                - pending
-#      - cloudwatchLog: '/aws/lambda/hello'
-#      - cognitoUserPool:
-#          pool: MyUserPool
-#          trigger: PreSignUp
-#      - alb:
-#          listenerArn: arn:aws:elasticloadbalancing:us-east-1:XXXXXX:listener/app/my-load-balancer/50dc6c495c0c9188/
-#          priority: 1
-#          conditions:
-#            host: example.com
-#            path: /hello

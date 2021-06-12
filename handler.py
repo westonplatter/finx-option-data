@@ -207,14 +207,9 @@ def write_df_to_s3(df) -> bool:
     ]
     df = df[cols]
 
-    for col in [
-        "delta",
-        "gamma",
-        "theta",
-        "rho",
-        "volatility",
-        "theoreticalOptionValue",
-    ]:
+    cols_to_numeric = ["delta", "gamma", "theta", "rho", "volatility", "theoreticalOptionValue"]
+
+    for col in cols_to_numeric:
         df[col] = df[col].replace(np.nan, 0)
         df[col] = df[col].replace("NaN", 0)
         df[col] = pd.to_numeric(df[col])
