@@ -17,6 +17,7 @@ provider:
 
 functions:
   fetch:
+    memorySize: 256
     events:
       - schedule: cron(* 13-20 ? * MON-FRI *)
     timeout: 40
@@ -27,8 +28,9 @@ functions:
       entryPoint:
         - '/lambda-entrypoint.sh'
   move:
+    memorySize: 1024 # may need to adjust as
     events:
-      - schedule: cron(15 17,20 ? * MON-FRI *)
+      - schedule: cron(15 13,14,15,16,17,18,19,20 ? * MON-FRI *)
     timeout: 40
     image:
       name: appimage
