@@ -1,5 +1,4 @@
 import json
-import os
 import tempfile
 from typing import Dict, Tuple, List
 
@@ -7,8 +6,6 @@ from datetime import datetime, timedelta
 from dotenv import dotenv_values
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 from pytz import timezone
 import sqlalchemy
 from sqlalchemy.orm import declarative_base
@@ -131,14 +128,14 @@ def handler_fetch_data(event, context):
         print(f"Storing option chain [{symbol}] - started")
         store_data(session, oc)
         print(f"Storing option chain [{symbol}] - finished")
-    
+
     return {
         "message": f"Successfully fetched option data for: {SYMBOLS}",
-        "event": event
+        "event": event,
     }
 
 
-def transform_option_data_to_df(option_data):
+def transform_option_data_to_df(option_data) -> pd.DataFrame:
     def extract_option_contracts(option_map):
         result = []
         for _, v in option_map.items():
@@ -156,7 +153,7 @@ def transform_option_data_to_df(option_data):
 
 
 def write_df_to_s3(df) -> bool:
-    cols = [
+    cols_to_keep = [
         "ask",
         "bid",
         "rho",
@@ -205,14 +202,23 @@ def write_df_to_s3(df) -> bool:
         # 'optionDeliverablesList',
         "theoreticalOptionValue",
     ]
-    df = df[cols]
+    columns_to_drop = list(set(list(df.columns)) - set(cols_to_keep))
 
-    cols_to_numeric = ["delta", "gamma", "theta", "rho", "volatility", "theoreticalOptionValue"]
+    df.drop(columns=columns_to_drop, inplace=True)
+
+    cols_to_numeric = [
+        "delta",
+        "gamma",
+        "theta",
+        "rho",
+        "volatility",
+        "theoreticalOptionValue",
+    ]
 
     for col in cols_to_numeric:
-        df[col] = df[col].replace(np.nan, 0)
-        df[col] = df[col].replace("NaN", 0)
-        df[col] = pd.to_numeric(df[col])
+        df.loc[:, col] = df[col].replace(np.nan, 0)
+        df.loc[:, col] = df[col].replace("NaN", 0)
+        df.loc[:, col] = pd.to_numeric(df[col])
 
     def gen_s3_uri():
         tz = timezone("US/Eastern")
@@ -224,6 +230,12 @@ def write_df_to_s3(df) -> bool:
     df.to_parquet(s3_uri, compression="gzip", index=False)
 
     return True
+
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
 
 
 def handler_move_data_to_s3(event, context):
@@ -242,22 +254,32 @@ def handler_move_data_to_s3(event, context):
         print("No OptionData instances to move to S3")
         return None
 
-    dfs = []
-    print(f"Moving ids to S3: {ids}")
-    for _id in ids:
-        option_data = session.query(OptionData).get(_id)
-        df = transform_option_data_to_df(option_data)
-        dfs.append(df)
+    for ids_chunk in chunks(ids, 50):
+        dfs = []
 
-    df = pd.concat(dfs)
+        print(
+            f"Moving ids to S3: {ids_chunk[0]}...{ids_chunk[-1]} (length={len(ids_chunk)})"
+        )
 
-    if write_df_to_s3(df):
-        print(f"Deleting records from Postgres: {ids}")
-        for _id in ids:
-            session.query(OptionData).filter(OptionData.id == _id).delete()
-            session.commit()
-    
+        for _id in ids_chunk:
+            option_data = session.query(OptionData).get(_id)
+            if option_data.data is None:
+                msg = f"--------------------------- WARNING - big deal - OptionData[id={option_data.id}] has no data"
+                print(msg)
+                continue
+
+            df = transform_option_data_to_df(option_data)
+            dfs.append(df)
+
+        df = pd.concat(dfs)
+
+        if write_df_to_s3(df):
+            print(f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}")
+            for _id in ids_chunk:
+                session.query(OptionData).filter(OptionData.id == _id).delete()
+                session.commit()
+
     return {
         "message": f"Successfully moved {len(ids)} rows from DB to S3 and deleted them",
-        "event": event
+        "event": event,
     }
