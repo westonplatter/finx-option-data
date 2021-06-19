@@ -25,7 +25,7 @@ configs = dotenv_values(".env")
 # constants - data
 BUCKET_NAME = configs["BUCKET_NAME"]
 POSTGRES_CONNECTION_STRING = configs["POSTGRES_CONNECTION_STRING"]
-CHUNKS_COUNT = 5
+CHUNKS_COUNT = 50
 
 # constants - services
 TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
@@ -269,6 +269,9 @@ def handler_move_data_to_s3(event, context):
     engine = create_engine()
     Session = sessionmaker(bind=engine)
     session = Session()
+
+    # display total count
+    logger.info(f"Total OptionData records = {session.query(OptionData.id).count()}")
 
     sql_statement = f"select id from {OptionData.__tablename__}"
 
