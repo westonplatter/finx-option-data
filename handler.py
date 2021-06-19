@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import sys
 import tempfile
 from typing import Dict, Tuple, List
 import time
@@ -24,7 +25,7 @@ configs = dotenv_values(".env")
 # constants - data
 BUCKET_NAME = configs["BUCKET_NAME"]
 POSTGRES_CONNECTION_STRING = configs["POSTGRES_CONNECTION_STRING"]
-CHUNKS_COUNT = 50
+CHUNKS_COUNT = 5
 
 # constants - services
 TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
@@ -38,12 +39,26 @@ SYMBOLS: List[str] = ["SPY", "QQQ", "TLT", "AMZN", "XLE", "XLK", "AAPL", "USO"]
 Base = declarative_base()
 
 
-stage_name = os.getenv("STAGE", "dev")
-log_level = logging.INFO if stage_name == "prod" else logging.DEBUG
-logging.basicConfig(level=log_level)
-logging.getLogger("botocore").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("s3fs").setLevel(logging.WARNING)
+def setup_logging():
+    logger = logging.getLogger()
+    for h in logger.handlers:
+      logger.removeHandler(h)
+    
+    h = logging.StreamHandler(sys.stdout)
+    
+    # use whatever format you want here
+    FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    h.setFormatter(logging.Formatter(FORMAT))
+    logger.addHandler(h)
+
+    stage_name = os.getenv("STAGE", "dev")
+    log_level = logging.INFO if stage_name == "prod" else logging.DEBUG 
+    logger.setLevel(log_level)
+    
+    return logger
+
+
+logger = setup_logging()
 
 
 class OptionData(Base):
@@ -277,7 +292,7 @@ def handler_move_data_to_s3(event, context):
             option_data = session.query(OptionData).get(_id)
             if option_data.data is None:
                 msg = f"--------------------------- WARNING - big deal - OptionData[id={option_data.id}] has no data"
-                logging.warning(msg)
+                logger.warning(msg)
                 continue
 
             df = transform_option_data_to_df(option_data)
@@ -289,14 +304,14 @@ def handler_move_data_to_s3(event, context):
 
         if write_df_to_s3(df):
             del df
-            logging.debug(f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}")
+            logger.debug(f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}")
             for _id in ids_chunk:
                 session.query(OptionData).filter(OptionData.id == _id).delete()
                 session.commit()
         
         time_diff = time.time() - time_start
         msg = f"Processed {len(ids_chunk)} in {time_diff:.2f}"
-        logging.info(msg)
+        logger.info(msg)
         
 
     return {
