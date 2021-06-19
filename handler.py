@@ -25,7 +25,7 @@ configs = dotenv_values(".env")
 # constants - data
 BUCKET_NAME = configs["BUCKET_NAME"]
 POSTGRES_CONNECTION_STRING = configs["POSTGRES_CONNECTION_STRING"]
-CHUNKS_COUNT = 50
+CHUNKS_COUNT = 100
 
 # constants - services
 TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
