@@ -1,6 +1,10 @@
 import json
+import logging
+import os
+import sys
 import tempfile
 from typing import Dict, Tuple, List
+import time
 
 from datetime import datetime, timedelta
 from dotenv import dotenv_values
@@ -21,6 +25,7 @@ configs = dotenv_values(".env")
 # constants - data
 BUCKET_NAME = configs["BUCKET_NAME"]
 POSTGRES_CONNECTION_STRING = configs["POSTGRES_CONNECTION_STRING"]
+CHUNKS_COUNT = 100
 
 # constants - services
 TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
@@ -32,6 +37,28 @@ SYMBOLS: List[str] = ["SPY", "QQQ", "TLT", "AMZN", "XLE", "XLK", "AAPL", "USO"]
 
 # DB models
 Base = declarative_base()
+
+
+def setup_logging():
+    logger = logging.getLogger()
+    for h in logger.handlers:
+        logger.removeHandler(h)
+
+    h = logging.StreamHandler(sys.stdout)
+
+    # use whatever format you want here
+    FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    h.setFormatter(logging.Formatter(FORMAT))
+    logger.addHandler(h)
+
+    stage_name = os.getenv("STAGE", "dev")
+    log_level = logging.INFO if stage_name == "prod" else logging.DEBUG
+    logger.setLevel(log_level)
+
+    return logger
+
+
+logger = setup_logging()
 
 
 class OptionData(Base):
@@ -243,6 +270,9 @@ def handler_move_data_to_s3(event, context):
     Session = sessionmaker(bind=engine)
     session = Session()
 
+    # display total count
+    logger.info(f"Total OptionData records = {session.query(OptionData.id).count()}")
+
     sql_statement = f"select id from {OptionData.__tablename__}"
 
     ids = []
@@ -251,33 +281,42 @@ def handler_move_data_to_s3(event, context):
         ids = [x[0] for x in results]
 
     if len(ids) == 0:
-        print("No OptionData instances to move to S3")
+        logging.info("No OptionData instances to move to S3")
         return None
 
-    for ids_chunk in chunks(ids, 50):
+    for ids_chunk in chunks(ids, CHUNKS_COUNT):
+        time_start = time.time()
         dfs = []
 
-        print(
-            f"Moving ids to S3: {ids_chunk[0]}...{ids_chunk[-1]} (length={len(ids_chunk)})"
-        )
+        msg = f"Moving ids to S3: {ids_chunk[0]}...{ids_chunk[-1]} (length={len(ids_chunk)})"
+        logging.debug(msg)
 
         for _id in ids_chunk:
             option_data = session.query(OptionData).get(_id)
             if option_data.data is None:
                 msg = f"--------------------------- WARNING - big deal - OptionData[id={option_data.id}] has no data"
-                print(msg)
+                logger.warning(msg)
                 continue
 
             df = transform_option_data_to_df(option_data)
+            del option_data
             dfs.append(df)
 
         df = pd.concat(dfs)
+        del dfs
 
         if write_df_to_s3(df):
-            print(f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}")
+            del df
+            logger.debug(
+                f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}"
+            )
             for _id in ids_chunk:
                 session.query(OptionData).filter(OptionData.id == _id).delete()
                 session.commit()
+
+        time_diff = time.time() - time_start
+        msg = f"Processed {len(ids_chunk)} in {time_diff:.2f}"
+        logger.info(msg)
 
     return {
         "message": f"Successfully moved {len(ids)} rows from DB to S3 and deleted them",
