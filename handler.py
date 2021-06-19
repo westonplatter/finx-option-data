@@ -42,19 +42,19 @@ Base = declarative_base()
 def setup_logging():
     logger = logging.getLogger()
     for h in logger.handlers:
-      logger.removeHandler(h)
-    
+        logger.removeHandler(h)
+
     h = logging.StreamHandler(sys.stdout)
-    
+
     # use whatever format you want here
     FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     h.setFormatter(logging.Formatter(FORMAT))
     logger.addHandler(h)
 
     stage_name = os.getenv("STAGE", "dev")
-    log_level = logging.INFO if stage_name == "prod" else logging.DEBUG 
+    log_level = logging.INFO if stage_name == "prod" else logging.DEBUG
     logger.setLevel(log_level)
-    
+
     return logger
 
 
@@ -282,7 +282,7 @@ def handler_move_data_to_s3(event, context):
 
     if len(ids) == 0:
         logging.info("No OptionData instances to move to S3")
-        return None    
+        return None
 
     for ids_chunk in chunks(ids, CHUNKS_COUNT):
         time_start = time.time()
@@ -307,15 +307,16 @@ def handler_move_data_to_s3(event, context):
 
         if write_df_to_s3(df):
             del df
-            logger.debug(f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}")
+            logger.debug(
+                f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}"
+            )
             for _id in ids_chunk:
                 session.query(OptionData).filter(OptionData.id == _id).delete()
                 session.commit()
-        
+
         time_diff = time.time() - time_start
         msg = f"Processed {len(ids_chunk)} in {time_diff:.2f}"
         logger.info(msg)
-        
 
     return {
         "message": f"Successfully moved {len(ids)} rows from DB to S3 and deleted them",
