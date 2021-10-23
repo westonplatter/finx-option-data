@@ -26,3 +26,8 @@ tda_api_creds.json
 .env
 data
 node_modules/*
+
+## custom - data
+*.ipynb
+.ipynb_checkpoints/
+
