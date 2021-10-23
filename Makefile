@@ -5,6 +5,10 @@ AWS_REGION ?= us-east-1
 # dynamic
 # GET_AWS_ACCOUNT_ID := $$(aws sts get-caller-identity | jq -r .Account)
 
+config.tda:
+	python cli.py gen-tda-creds
+
+
 docker.build:
 	docker build -t ${DOCKER_TAG} .
 
