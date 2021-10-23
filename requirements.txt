@@ -1,6 +1,6 @@
 boto3
 fsspec
-pandas
+pandas==1.2.4
 psycopg2-binary
 pyarrow
 python-dotenv
