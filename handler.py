@@ -63,7 +63,6 @@ class OptionData(Base):
 
 def create_engine() -> sqlalchemy.engine:
     import json
-
     from helpers import get_aws_secret
 
     # TODO(weston) - swap out prod for stage name
@@ -73,7 +72,12 @@ def create_engine() -> sqlalchemy.engine:
     # to resolve a db dialect issue
     db_url = aws_config["DATABASE_URL"].replace("postgres", "postgresql")
 
-    engine = sqlalchemy.create_engine(db_url)
+    try:
+        engine = sqlalchemy.create_engine(db_url)
+    except Exception:
+        # TODO(weston) - run the update db password function
+        logger.error("Failed to connect to db")
+
     return engine
 
 
