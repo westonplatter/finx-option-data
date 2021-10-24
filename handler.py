@@ -1,17 +1,17 @@
 import json
-import os
 import logging
+import os
 import sys
 import tempfile
 import time
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Tuple
 
-from loguru import logger
 import numpy as np
 import pandas as pd
 import sqlalchemy
 from dotenv import dotenv_values
+from loguru import logger
 from pytz import timezone
 from sqlalchemy import BigInteger, Column, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -48,6 +48,7 @@ def setup_logging():
 
     logger.add(sys.stderr, level=log_level)
 
+
 class OptionData(Base):
     __tablename__ = "option_data"
 
@@ -61,8 +62,18 @@ class OptionData(Base):
 
 
 def create_engine() -> sqlalchemy.engine:
-    connection_str = POSTGRES_CONNECTION_STRING
-    engine = sqlalchemy.create_engine(connection_str)
+    import json
+
+    from helpers import get_aws_secret
+
+    # TODO(weston) - swap out prod for stage name
+    aws_sn = "finx-option-data/prod/config"
+    aws_config = json.loads(get_aws_secret(secret_name=aws_sn))
+
+    # to resolve a db dialect issue
+    db_url = aws_config["DATABASE_URL"].replace("postgres", "postgresql")
+
+    engine = sqlalchemy.create_engine(db_url)
     return engine
 
 
@@ -228,7 +239,7 @@ def handler_fetch_data(event, context):
     engine = create_engine()
     Session = sessionmaker(bind=engine)
     session = Session()
-    
+
     for oc in option_chains:
         symbol: str = oc["underlying"]["symbol"]
         store_data(session, oc)
@@ -299,3 +310,22 @@ def handler_move_data_to_s3(event, context):
         "message": f"Successfully moved {len(ids)} rows from DB to S3 and deleted them",
         "event": event,
     }
+
+
+def handler_check_pg_password(event, context):
+    import json
+
+    from helpers import get_aws_secret, get_heroku_config, set_aws_secret
+
+    # TODO(weston) - swap out prod for stage name
+    aws_sn = "finx-option-data/prod/config"
+    aws_config = json.loads(get_aws_secret(secret_name=aws_sn))
+
+    # pass stage into function to separate out prod/dev/etc
+    heroku_config = get_heroku_config(
+        heroku_app_name="finx-option-data", aws_secret_name="finx-option-data/heroku"
+    )
+
+    if aws_config["DATABASE_URL"] != heroku_config["DATABASE_URL"]:
+        data = {"DATABASE_URL": heroku_config["DATABASE_URL"]}
+        set_aws_secret(secret_name=aws_sn, json_data=data)

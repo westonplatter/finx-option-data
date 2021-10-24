@@ -1,7 +1,11 @@
 import click
 
 from configure import authenticate_with_tda, write_example_env_file
-from handler import handler_fetch_data, handler_move_data_to_s3
+from handler import (
+    handler_check_pg_password,
+    handler_fetch_data,
+    handler_move_data_to_s3,
+)
 
 
 @click.group()
@@ -29,6 +33,11 @@ def gen_env_sample():
 @core.command()
 def gen_tda_creds():
     authenticate_with_tda()
+
+
+@core.command()
+def get_secret():
+    handler_check_pg_password(None, None)
 
 
 if __name__ == "__main__":

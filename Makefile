@@ -8,14 +8,20 @@ AWS_REGION ?= us-east-1
 config.tda:
 	python cli.py gen-tda-creds
 
+fetch:
+	python cli.py do-fetch-data
+
+move:
+	python cli.py do-move-data-to-s3
+
 
 docker.build:
 	docker build -t ${DOCKER_TAG} .
 
-docker.run.fetch:
+docker.local.fetch:
 	docker run -p 9000:8080 ${DOCKER_TAG} handler.handler_fetch_data
 	
-docker.run.move:
+docker.local.move:
 	docker run \
 		-p 9000:8080 \
 		--env AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID \
@@ -25,8 +31,9 @@ docker.run.move:
 		${DOCKER_TAG} \
 		handler.handler_move_data_to_s3
 
-local.invoke:
+docker.invoke:
 	curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+
 
 deploy:
 	sls deploy

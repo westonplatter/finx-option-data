@@ -1,5 +1,6 @@
 boto3
 fsspec
+heroku3
 loguru
 pandas==1.2.4
 psycopg2-binary
