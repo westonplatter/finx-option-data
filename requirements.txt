@@ -1,6 +1,8 @@
 boto3
 fsspec
-pandas
+heroku3
+loguru
+pandas==1.2.4
 psycopg2-binary
 pyarrow
 python-dotenv
@@ -8,4 +10,4 @@ pytz
 requests
 s3fs
 sqlalchemy
-td-ameritrade-python-api
+tda-api

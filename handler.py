@@ -3,36 +3,43 @@ import logging
 import os
 import sys
 import tempfile
-from typing import Dict, Tuple, List
 import time
+from datetime import date, datetime, timedelta
+from typing import Dict, List, Tuple
 
-from datetime import datetime, timedelta
-from dotenv import dotenv_values
 import numpy as np
 import pandas as pd
-from pytz import timezone
 import sqlalchemy
-from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, Integer, String, Integer, BigInteger
+from dotenv import dotenv_values
+from loguru import logger
+from pytz import timezone
+from sqlalchemy import BigInteger, Column, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import sessionmaker
-from td.client import TDClient
+from sqlalchemy.orm import declarative_base, sessionmaker
+from tda.auth import client_from_token_file
+from tda.client import Client
+
+from helpers import get_aws_secret, get_heroku_config, set_aws_secret
 
 
 configs = dotenv_values(".env")
 
 
 # constants - data
-BUCKET_NAME = configs["BUCKET_NAME"]
-POSTGRES_CONNECTION_STRING = configs["POSTGRES_CONNECTION_STRING"]
-CHUNKS_COUNT = 100
+BUCKET_NAME: str = configs["BUCKET_NAME"]
+POSTGRES_CONNECTION_STRING: str = configs["POSTGRES_CONNECTION_STRING"]
+CHUNKS_COUNT: int = int(configs.get("CHUNKS_COUNT", "100"))
 
 # constants - services
-TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
-TDA_REDIRECT_URL = configs["TDA_REDIRECT_URL"]
+TDA_CLIENT_ID: str = configs["TDA_CLIENT_ID"]
+TDA_REDIRECT_URL: str = configs["TDA_REDIRECT_URL"]
+TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
 
-# contants - financial
-SYMBOLS: List[str] = ["SPY", "QQQ", "TLT", "AMZN", "XLE", "XLK", "AAPL", "USO"]
+# constants - financial
+OPTIONS_SCAN_SYMBOLS: List[str] = configs.get(
+    "OPTIONS_SCAN_SYMBOLS", "SPY,QQQ,TLT,AMZN,XLE,XLK,AAPL,USO"
+).split(",")
+OPTIONS_SCAN_MAX_DTE: int = int(configs.get("OPTIONS_SCAN_MAX_DTE", "31"))
 
 
 # DB models
@@ -40,25 +47,12 @@ Base = declarative_base()
 
 
 def setup_logging():
-    logger = logging.getLogger()
-    for h in logger.handlers:
-        logger.removeHandler(h)
-
-    h = logging.StreamHandler(sys.stdout)
-
-    # use whatever format you want here
-    FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    h.setFormatter(logging.Formatter(FORMAT))
-    logger.addHandler(h)
+    logger.remove()
 
     stage_name = os.getenv("STAGE", "dev")
     log_level = logging.INFO if stage_name == "prod" else logging.DEBUG
-    logger.setLevel(log_level)
 
-    return logger
-
-
-logger = setup_logging()
+    logger.add(sys.stderr, level=log_level)
 
 
 class OptionData(Base):
@@ -74,28 +68,33 @@ class OptionData(Base):
 
 
 def create_engine() -> sqlalchemy.engine:
-    connection_str = POSTGRES_CONNECTION_STRING
-    engine = sqlalchemy.create_engine(connection_str)
-    return engine
+    def gen_engine() -> sqlalchemy.engine:
+        # TODO(weston) - swap out prod for stage name
+        aws_sn = "finx-option-data/prod/config"
+        aws_config = json.loads(get_aws_secret(secret_name=aws_sn))
+
+        # to resolve a db dialect issue
+        db_url = aws_config["DATABASE_URL"].replace("postgres", "postgresql")
+        engine = sqlalchemy.create_engine(db_url)
+        return engine
+
+    try:
+        return gen_engine()
+    except Exception:
+        handler_check_pg_password(None, None)
+    finally:
+        return gen_engine()
 
 
-def create_session() -> TDClient:
-    creds_filename = "tda_api_creds.json"
-    with open(creds_filename, "r") as f:
-        creds_data = json.load(f)
+def gen_tda_client() -> Client:
+    with open(TDA_CREDENTIALS_FILE_NAME, "r") as f:
+        credentials_data = json.load(f)
 
     with tempfile.NamedTemporaryFile() as tmpfile:
         with open(tmpfile.name, "w") as f:
-            json.dump(creds_data, f)
+            json.dump(credentials_data, f)
 
-        # Create a new session, credentials path is required.
-        TDSession = TDClient(
-            client_id=TDA_CLIENT_ID,
-            redirect_uri=TDA_REDIRECT_URL,
-            credentials_path=tmpfile.name,
-        )
-        TDSession.login()
-        return TDSession
+        return client_from_token_file(tmpfile.name, TDA_CLIENT_ID)
 
 
 def store_data(session, option_chain) -> None:
@@ -109,57 +108,28 @@ def store_data(session, option_chain) -> None:
     session.commit()
 
 
-def gen_from_and_to_dates() -> Tuple[str, str]:
+def gen_from_and_to_dates() -> Tuple[date, date]:
     tz = timezone("US/Eastern")
     now = datetime.now(tz)
     to_date = now + timedelta(days=31)
-
-    from_data = now.date().strftime("%Y-%m-%d")
-    to_data = to_date.date().strftime("%Y-%m-%d")
-
-    return (from_data, to_data)
+    return (now.date(), to_date.date())
 
 
-def fetch_data(tda_session, symbol) -> Dict:
-    from_data, to_data = gen_from_and_to_dates()
+def fetch_data(tda_client: Client, symbol: str) -> Dict:
+    from_date, to_date = gen_from_and_to_dates()
 
     default_params: Dict = {
-        "contractType": "ALL",
-        "strikeCount": 50,
-        "includeQuotes": "TRUE",
-        "range": "NTM",
-        "fromData": from_data,
-        "toDate": to_data,
+        "contract_type": Client.Options.ContractType.ALL,
+        "strike_count": 50,
+        "include_quotes": "TRUE",
+        "strike_range": Client.Options.StrikeRange.NEAR_THE_MONEY,
+        "from_date": from_date,
+        "to_date": to_date,
     }
-
-    params = {**default_params, **{"symbol": symbol}}
-    oc = tda_session.get_options_chain(params)
-    print(f"fetched [{symbol}]")
+    response = tda_client.get_option_chain(symbol, **default_params)
+    oc = response.json()
+    logger.debug(f"fetched [{symbol}]")
     return oc
-
-
-def handler_fetch_data(event, context):
-    engine = create_engine()
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    tda_session = create_session()
-
-    option_chains = []
-    for symbol in SYMBOLS:
-        option_chain = fetch_data(tda_session, symbol)
-        option_chains.append(option_chain)
-
-    for _, oc in enumerate(option_chains):
-        symbol: str = oc["underlying"]["symbol"]
-        print(f"Storing option chain [{symbol}] - started")
-        store_data(session, oc)
-        print(f"Storing option chain [{symbol}] - finished")
-
-    return {
-        "message": f"Successfully fetched option data for: {SYMBOLS}",
-        "event": event,
-    }
 
 
 def transform_option_data_to_df(option_data) -> pd.DataFrame:
@@ -265,7 +235,34 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
+def handler_fetch_data(event, context):
+    setup_logging()
+
+    tda_client = gen_tda_client()
+
+    option_chains = []
+    for symbol in OPTIONS_SCAN_SYMBOLS:
+        option_chain = fetch_data(tda_client, symbol)
+        option_chains.append(option_chain)
+
+    engine = create_engine()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    for oc in option_chains:
+        symbol: str = oc["underlying"]["symbol"]
+        store_data(session, oc)
+        logger.debug(f"Storing option chain [{symbol}] - finished")
+
+    return {
+        "message": f"Successfully fetched option data for: {OPTIONS_SCAN_SYMBOLS}",
+        "event": event,
+    }
+
+
 def handler_move_data_to_s3(event, context):
+    setup_logging()
+
     engine = create_engine()
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -281,7 +278,7 @@ def handler_move_data_to_s3(event, context):
         ids = [x[0] for x in results]
 
     if len(ids) == 0:
-        logging.info("No OptionData instances to move to S3")
+        logger.info("No OptionData instances to move to S3")
         return None
 
     for ids_chunk in chunks(ids, CHUNKS_COUNT):
@@ -289,7 +286,7 @@ def handler_move_data_to_s3(event, context):
         dfs = []
 
         msg = f"Moving ids to S3: {ids_chunk[0]}...{ids_chunk[-1]} (length={len(ids_chunk)})"
-        logging.debug(msg)
+        logger.debug(msg)
 
         for _id in ids_chunk:
             option_data = session.query(OptionData).get(_id)
@@ -322,3 +319,18 @@ def handler_move_data_to_s3(event, context):
         "message": f"Successfully moved {len(ids)} rows from DB to S3 and deleted them",
         "event": event,
     }
+
+
+def handler_check_pg_password(event, context):
+    # TODO(weston) - swap out prod for stage name
+    aws_sn = "finx-option-data/prod/config"
+    aws_config = json.loads(get_aws_secret(secret_name=aws_sn))
+
+    # pass stage into function to separate out prod/dev/etc
+    heroku_config = get_heroku_config(
+        heroku_app_name="finx-option-data", aws_secret_name="finx-option-data/heroku"
+    )
+
+    if aws_config["DATABASE_URL"] != heroku_config["DATABASE_URL"]:
+        data = {"DATABASE_URL": heroku_config["DATABASE_URL"]}
+        set_aws_secret(secret_name=aws_sn, json_data=data)
