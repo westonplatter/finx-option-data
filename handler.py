@@ -19,6 +19,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from tda.auth import client_from_token_file
 from tda.client import Client
 
+from helpers import get_aws_secret, get_heroku_config, set_aws_secret
+
+
 configs = dotenv_values(".env")
 
 
@@ -62,23 +65,22 @@ class OptionData(Base):
 
 
 def create_engine() -> sqlalchemy.engine:
-    import json
-    from helpers import get_aws_secret
+    def gen_engine() -> sqlalchemy.engine:
+        # TODO(weston) - swap out prod for stage name
+        aws_sn = "finx-option-data/prod/config"
+        aws_config = json.loads(get_aws_secret(secret_name=aws_sn))
 
-    # TODO(weston) - swap out prod for stage name
-    aws_sn = "finx-option-data/prod/config"
-    aws_config = json.loads(get_aws_secret(secret_name=aws_sn))
-
-    # to resolve a db dialect issue
-    db_url = aws_config["DATABASE_URL"].replace("postgres", "postgresql")
+        # to resolve a db dialect issue
+        db_url = aws_config["DATABASE_URL"].replace("postgres", "postgresql")
+        engine = sqlalchemy.create_engine(db_url)
+        return engine
 
     try:
-        engine = sqlalchemy.create_engine(db_url)
+        return gen_engine()
     except Exception:
-        # TODO(weston) - run the update db password function
-        logger.error("Failed to connect to db")
-
-    return engine
+        handler_check_pg_password(None, None)
+    finally:
+        return gen_engine()
 
 
 def gen_tda_client() -> Client:
@@ -317,10 +319,6 @@ def handler_move_data_to_s3(event, context):
 
 
 def handler_check_pg_password(event, context):
-    import json
-
-    from helpers import get_aws_secret, get_heroku_config, set_aws_secret
-
     # TODO(weston) - swap out prod for stage name
     aws_sn = "finx-option-data/prod/config"
     aws_config = json.loads(get_aws_secret(secret_name=aws_sn))
