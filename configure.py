@@ -4,7 +4,7 @@ from tda.auth import client_from_manual_flow
 
 def write_example_env_file():
     ENV_FILE_NAME = ".env"
-    ENV_SAMPLE_FILE_NAME = (".env.sample",)
+    ENV_SAMPLE_FILE_NAME = ".env.sample"
 
     env_var_keys = []
     with open(ENV_FILE_NAME, "r") as fin:
