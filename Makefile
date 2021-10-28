@@ -49,3 +49,6 @@ deploy.prod:
 
 aws.invoke.prod.fetch:
 	sls invoke --stage prod --function fetch
+
+aws.invoke.prod.move:
+	sls invoke --stage prod --function move
