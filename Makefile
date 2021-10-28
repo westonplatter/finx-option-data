@@ -41,7 +41,11 @@ docker.invoke:
 
 
 deploy:
-	sls deploy
+	sls deploy --stage dev --verbose
 
 deploy.prod:
-	sls deploy --stage prod
+	sls deploy --stage prod --verbose
+
+
+aws.invoke.prod.fetch:
+	sls invoke --stage prod --function fetch

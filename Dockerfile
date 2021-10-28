@@ -4,6 +4,7 @@ COPY requirements.txt ./
 RUN pip install install -r requirements.txt
 
 COPY handler.py ./
+COPY helpers.py ./
 COPY .env ./
 COPY tda_api_creds.json ./
 
