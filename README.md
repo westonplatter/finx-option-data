@@ -23,4 +23,3 @@ TDA_CLIENT_ID=ABC123-somethingelse
 BUCKET_NAME=your-bucket-name
 TDA_REDIRECT_URL=http://localhost
 ```
-
