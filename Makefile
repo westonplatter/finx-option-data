@@ -1,9 +1,14 @@
+.DEFAULT_GOAL := help
+
 # static
 DOCKER_TAG ?= serverless-finx-option-data-dev:appimage
 AWS_REGION ?= us-east-1
 
 # dynamic
 # GET_AWS_ACCOUNT_ID := $$(aws sts get-caller-identity | jq -r .Account)
+
+help:
+	echo "todo"
 
 config.tda:
 	python cli.py gen-tda-creds
