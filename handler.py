@@ -26,17 +26,19 @@ configs = dotenv_values(".env")
 
 
 # constants - data
-BUCKET_NAME = configs["BUCKET_NAME"]
-POSTGRES_CONNECTION_STRING = configs["POSTGRES_CONNECTION_STRING"]
-CHUNKS_COUNT = 100
+BUCKET_NAME: str = configs["BUCKET_NAME"]
+POSTGRES_CONNECTION_STRING: str = configs["POSTGRES_CONNECTION_STRING"]
+CHUNKS_COUNT: int = int(configs.get("CHUNKS_COUNT", "100"))
 
 # constants - services
-TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
-TDA_REDIRECT_URL = configs["TDA_REDIRECT_URL"]
-TDA_CREDENTIALS_FILE_NAME = "tda_api_creds.json"
+TDA_CLIENT_ID: str = configs["TDA_CLIENT_ID"]
+TDA_REDIRECT_URL: str = configs["TDA_REDIRECT_URL"]
+TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
 
-# contants - financial
-SYMBOLS: List[str] = ["SPY", "QQQ", "TLT", "AMZN", "XLE", "XLK", "AAPL", "USO"]
+# constants - financial
+SYMBOLS: List[str] = configs.get("SYMBOLS", "SPY,QQQ,TLT,AMZN,XLE,XLK,AAPL,USO").split(
+    ","
+)
 
 
 # DB models
