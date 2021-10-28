@@ -36,9 +36,10 @@ TDA_REDIRECT_URL: str = configs["TDA_REDIRECT_URL"]
 TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
 
 # constants - financial
-SYMBOLS: List[str] = configs.get("SYMBOLS", "SPY,QQQ,TLT,AMZN,XLE,XLK,AAPL,USO").split(
-    ","
-)
+OPTIONS_SCAN_SYMBOLS: List[str] = configs.get(
+    "OPTIONS_SCAN_SYMBOLS", "SPY,QQQ,TLT,AMZN,XLE,XLK,AAPL,USO"
+).split(",")
+OPTIONS_SCAN_MAX_DTE: int = int(configs.get("OPTIONS_SCAN_MAX_DTE", "31"))
 
 
 # DB models
@@ -240,7 +241,7 @@ def handler_fetch_data(event, context):
     tda_client = gen_tda_client()
 
     option_chains = []
-    for symbol in SYMBOLS:
+    for symbol in OPTIONS_SCAN_SYMBOLS:
         option_chain = fetch_data(tda_client, symbol)
         option_chains.append(option_chain)
 
@@ -254,7 +255,7 @@ def handler_fetch_data(event, context):
         logger.debug(f"Storing option chain [{symbol}] - finished")
 
     return {
-        "message": f"Successfully fetched option data for: {SYMBOLS}",
+        "message": f"Successfully fetched option data for: {OPTIONS_SCAN_SYMBOLS}",
         "event": event,
     }
 
