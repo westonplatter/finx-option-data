@@ -39,7 +39,7 @@ TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
 OPTIONS_SCAN_SYMBOLS: List[str] = configs.get(
     "OPTIONS_SCAN_SYMBOLS", "SPY,QQQ,TLT,AMZN,XLE,XLK,AAPL,USO"
 ).split(",")
-OPTIONS_SCAN_MAX_DTE: int = int(configs.get("OPTIONS_SCAN_MAX_DTE", "31"))
+OPTIONS_SCAN_MAX_DTE: int = int(configs.get("OPTIONS_SCAN_MAX_DTE", "60"))
 
 
 # DB models
