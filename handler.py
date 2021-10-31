@@ -7,6 +7,7 @@ import time
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Tuple
 
+import requests
 import numpy as np
 import pandas as pd
 import sqlalchemy
@@ -31,9 +32,11 @@ POSTGRES_CONNECTION_STRING: str = configs["POSTGRES_CONNECTION_STRING"]
 CHUNKS_COUNT: int = int(configs.get("CHUNKS_COUNT", "100"))
 
 # constants - services
+DISCORD_CHANNEL_URL: str = configs["DISCORD_CHANNEL_URL"]
 TDA_CLIENT_ID: str = configs["TDA_CLIENT_ID"]
 TDA_REDIRECT_URL: str = configs["TDA_REDIRECT_URL"]
 TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
+
 
 # constants - financial
 OPTIONS_SCAN_SYMBOLS: List[str] = configs.get(
@@ -235,6 +238,10 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
+def discord_post_message(message: str) -> None:
+    requests.post(DISCORD_CHANNEL_URL, json={"content": message})
+
+
 def handler_fetch_data(event, context):
     setup_logging()
 
@@ -285,7 +292,7 @@ def handler_move_data_to_s3(event, context):
         time_start = time.time()
         dfs = []
 
-        msg = f"Moving ids to S3: {ids_chunk[0]}...{ids_chunk[-1]} (length={len(ids_chunk)})"
+        msg = f"Moving ids to S3: {ids_chunk[0]}..{ids_chunk[-1]} (length={len(ids_chunk)})"
         logger.debug(msg)
 
         for _id in ids_chunk:
@@ -305,20 +312,19 @@ def handler_move_data_to_s3(event, context):
         if write_df_to_s3(df):
             del df
             logger.debug(
-                f"Deleting records from Postgres: {ids_chunk[0]}...{ids_chunk[-1]}"
+                f"Deleting records from Postgres: {ids_chunk[0]}..{ids_chunk[-1]}"
             )
             for _id in ids_chunk:
                 session.query(OptionData).filter(OptionData.id == _id).delete()
                 session.commit()
 
         time_diff = time.time() - time_start
-        msg = f"Processed {len(ids_chunk)} in {time_diff:.2f}"
+        msg = f"Processed {len(ids_chunk)} records in {time_diff:.2f} seconds"
         logger.info(msg)
-
-    return {
-        "message": f"Successfully moved {len(ids)} rows from DB to S3 and deleted them",
-        "event": event,
-    }
+    
+    message = f"Successfully moved {len(ids)} rows from DB to S3 and deleted them"
+    discord_post_message(message)
+    return {"message": message, "event": event}
 
 
 def handler_check_pg_password(event, context):
@@ -334,3 +340,4 @@ def handler_check_pg_password(event, context):
     if aws_config["DATABASE_URL"] != heroku_config["DATABASE_URL"]:
         data = {"DATABASE_URL": heroku_config["DATABASE_URL"]}
         set_aws_secret(secret_name=aws_sn, json_data=data)
+        discord_post_message("Successfully updated the Postgres Password")
