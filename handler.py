@@ -321,7 +321,7 @@ def handler_move_data_to_s3(event, context):
         time_diff = time.time() - time_start
         msg = f"Processed {len(ids_chunk)} records in {time_diff:.2f} seconds"
         logger.info(msg)
-    
+
     message = f"Successfully moved {len(ids)} rows from DB to S3 and deleted them"
     discord_post_message(message)
     return {"message": message, "event": event}
