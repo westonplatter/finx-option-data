@@ -33,6 +33,8 @@ CHUNKS_COUNT: int = int(configs.get("CHUNKS_COUNT", "100"))
 
 # constants - services
 DISCORD_CHANNEL_URL: str = configs["DISCORD_CHANNEL_URL"]
+DISCORD_LOG_FETCH = configs.get("DISCORD_LOG_FETCH", "False") == "True"
+DISCORD_LOG_MOVE = configs.get("DISCORD_LOG_MOVE", "False") == "True"
 TDA_CLIENT_ID: str = configs["TDA_CLIENT_ID"]
 TDA_REDIRECT_URL: str = configs["TDA_REDIRECT_URL"]
 TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
@@ -262,7 +264,8 @@ def handler_fetch_data(event, context):
         logger.debug(f"Storing option chain [{symbol}] - finished")
 
     message = f"Successfully fetched option data for: {OPTIONS_SCAN_SYMBOLS}"
-    discord_post_message(message=message)
+    if DISCORD_LOG_FETCH:
+        discord_post_message(message=message)
     return {
         "message": message,
         "event": event,
@@ -325,7 +328,8 @@ def handler_move_data_to_s3(event, context):
         logger.info(msg)
 
     message = f"Successfully moved {len(ids)} rows from DB to S3 and deleted them"
-    discord_post_message(message)
+    if DISCORD_LOG_MOVE:
+        discord_post_message(message)
     return {"message": message, "event": event}
 
 
