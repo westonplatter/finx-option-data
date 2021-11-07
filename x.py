@@ -50,22 +50,40 @@ def fetch_df(s3_fs_client, folder: str) -> pd.DataFrame:
     return df
 
 
+def convert_timems_to_datetime(series, tz: str=None):
+    result = pd.to_datetime(series, unit="ms").dt
+    if tz is None:
+        return result
+    else:
+        return result.tz_localize(tz=tz)
+
+def convert_timems_to_weekday(series):
+    return pd.to_datetime(df.expirationDate, unit="ms").dt.weekday
+
+
 def transform_df(df) -> pd.DataFrame:
     """Note - we mutate the in memory dataframe and return it"""
 
     # add underlying symbol
     df["underlying_symbol"] = df.symbol.str.split("_").str[0]
+    
+    # add strike
+    df["strike"] = df.symbol.str.extract(r'_.*[C|P](.*)')
 
     # convert trade/quote time to Eastern Time
-    df["trade_time"] = pd.to_datetime(df["tradeTimeInLong"], unit="ms").dt.tz_localize(
-        tz="US/Eastern"
-    )
-    df["quote_time"] = pd.to_datetime(df["quoteTimeInLong"], unit="ms").dt.tz_localize(
-        tz="US/Eastern"
-    )
+    df["trade_time"] = convert_timems_to_datetime(series=df["tradeTimeInLong"], tz="US/Eastern")
+    df["quote_time"] = convert_timems_to_datetime(series=df["quoteTimeInLong"], tz="US/Eastern")
+
+    # add expiration_weekday
+    df["expiration_weekday"] = convert_timems_to_weekday(df.expirationDate)
 
     # set index on quote time
     df.set_index("quote_time", drop=False, inplace=True)
+
+    # disregard data that's outside market hours, ET
+    market_start_time = "09:30:00"
+    market_stop_time = "16:00:00"
+    df = df.between_time(market_start_time, market_stop_time)
 
     return df
 
@@ -92,11 +110,16 @@ columns_to_aggregate = [
     "putCall",
     "timeValue",
     "volatility",
+    "expirationDate",
     "daysToExpiration",
     "theoreticalVolatility",
     "theoreticalOptionValue",
-    "underlying_symbol",
     "symbol",
+    # added columns
+    "expiration_weekday",
+    "strike",
+    "underlying_symbol",
+    
 ]
 agg_dict = {}
 for c in columns_to_aggregate:
@@ -107,15 +130,18 @@ ddfs: List[pd.DataFrame] = []
 
 for underlying_symbol in list(set(df.underlying_symbol.values)):
     symbol_df = df.query('underlying_symbol == @underlying_symbol')
+    symbols = list(set(symbol_df.symbol.values))
 
-    values = list(set(symbol_df.symbol.values))
-
-    print(f"{underlying_symbol}. symbol count = {len(values)}")
+    print(f"{underlying_symbol}. symbol count = {len(symbols)}")
     
-    for symbol in tqdm(values):
-        # TODO(weston) agg is super slow in the way I'm using it here.
-        (symbol_df.query("symbol == @symbol")
-            .resample("1min")
-            .agg(agg_dict))
-        # print(f"Finished {symbol}. Count = {df.query('symbol == @symbol').count()['quote_time']}")
-        # ddfs.append(ddf)
+    # for symbol in tqdm(values):
+    for symbol in symbols:
+        ddf = symbol_df.query("symbol == @symbol").resample("1min").agg(agg_dict)
+        ddfs.append(ddf)
+        
+    x = pd.concat(ddfs)
+    x = x.dropna(subset=['delta'])
+
+    # TODO(weston)
+    # create s3 file path name
+    # save to s3
