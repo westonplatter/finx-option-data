@@ -16,7 +16,7 @@ configs = dotenv_values(".env")
 BUCKET_NAME: str = configs["BUCKET_NAME"]
 
 # semi constants
-raw_prefix = "finx-option-data/2021/10/"  # this is hard coded
+raw_prefix = "finx-option-data/2021/11/"  # this is hard coded
 root_path = "finx-option-data-normalized/1min"
 
 
@@ -150,7 +150,7 @@ def process_folder(folder: str):
     for c in columns_to_aggregate:
         agg_dict[c] = "last"
 
-    underlying_symbols = list(set(df.underlying_symbol.values))
+    underlying_symbols = sorted(list(set(df.underlying_symbol.values)))
 
     for underlying_symbol in underlying_symbols:
         ddfs: List[pd.DataFrame] = []
