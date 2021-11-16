@@ -1,4 +1,5 @@
 import boto3
+from datetime import date, timedelta
 from dotenv import dotenv_values
 import hashlib
 from loguru import logger
@@ -15,44 +16,14 @@ configs = dotenv_values(".env")
 # constants - data
 BUCKET_NAME: str = configs["BUCKET_NAME"]
 
-# semi constants
-raw_prefix = "finx-option-data/2021/11/"  # this is hard coded
-root_path = "finx-option-data-normalized/1min"
 
-
-# global variables
-s3_boto3_client = boto3.client("s3")
-s3_fs_client = s3 = s3fs.S3FileSystem()
-
-
-def list_folders(s3_client, bucket_name, prefix):
+def list_folders(s3_client, bucket_name: str, prefix: str):
     result = s3_client.list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
     prefixes = result.get("CommonPrefixes")
     if prefixes is None:
         return []
     folders = [o.get("Prefix") for o in prefixes]
     return folders
-
-
-def get_unprocessed_folders(s3_client, raw_prefix: str) -> List[str]:
-    raw_data_folders = list_folders(s3_client, BUCKET_NAME, raw_prefix)
-
-    # TODO(weston) - do recursive search for unprocessed days without hard coding month
-    parts = raw_prefix.split("/")
-    year, month = parts[1], parts[2]
-    finished_prefix = f"{root_path}/{year}/{month}/"
-    finished_data_folders = list_folders(s3_client, BUCKET_NAME, finished_prefix)
-
-    unprocessed_folders = list(
-        set(raw_data_folders)
-        - set(
-            [
-                x.replace("finx-option-data-normalized/1min/", "finx-option-data/")
-                for x in finished_data_folders
-            ]
-        )
-    )
-    return unprocessed_folders
 
 
 def fetch_df(s3_fs_client, folder: str) -> pd.DataFrame:
@@ -120,7 +91,7 @@ def transform_df(df) -> pd.DataFrame:
     return df
 
 
-def process_folder(folder: str):
+def process_folder(s3_fs_client, folder: str, root_path: str):
     df = fetch_df(s3_fs_client=s3_fs_client, folder=folder)
     df = transform_df(df)
 
@@ -175,11 +146,61 @@ def process_folder(folder: str):
         )
 
 
-unprocessed_folders = get_unprocessed_folders(
-    s3_client=s3_boto3_client, raw_prefix=raw_prefix
-)
+def post_process_date(s3_fs_client, d: date) -> None:
+    root_path = "finx-option-data-normalized/1min"
+    folder = f"finx-option-data/{d.year}/{d.month}/{d.day}/"
+    process_folder(s3_fs_client=s3_fs_client, folder=folder, root_path=root_path)
 
-logger.debug(sorted(unprocessed_folders))
 
-for folder in sorted(unprocessed_folders):
-    process_folder(folder=folder)
+def data_is_unprocessed_for(s3_boto3_client, d: date) -> bool:
+    raw_data_key = f"finx-option-data/{d.year}/{d.month}/{d.day}"
+    finished_data_key = f"finx-option-data-normalized/1min/{d.year}/{d.month}/{d.day}/"
+
+    raw_data = list_folders(
+        s3_boto3_client, bucket_name=BUCKET_NAME, prefix=raw_data_key
+    )
+    if len(raw_data) == 0:
+        # no data to process
+        return False
+
+    finished_data = list_folders(
+        s3_boto3_client, bucket_name=BUCKET_NAME, prefix=finished_data_key
+    )
+    if len(finished_data) > 0:
+        # finished data already there
+        return False
+
+    return True
+
+
+def handler_post_process_today():
+    s3_boto3_client = boto3.client("s3")
+    s3_fs_client = s3fs.S3FileSystem()
+
+    d = date.today()
+
+    if data_is_unprocessed_for(s3_boto3_client, d=d):
+        post_process_date(s3_fs_client, d=d)
+
+
+def handler_post_process_yesterday():
+    s3_boto3_client = boto3.client("s3")
+    s3_fs_client = s3fs.S3FileSystem()
+
+    d = date.today() - timedelta(days=1)
+
+    if data_is_unprocessed_for(s3_boto3_client, d=d):
+        post_process_date(s3_fs_client, d=d)
+
+
+def handler_post_process_last_x_days(x: int = 30):
+    s3_boto3_client = boto3.client("s3")
+    s3_fs_client = s3fs.S3FileSystem()
+
+    today = date.today()
+
+    for i in range(0, x):
+        d = today - timedelta(days=i)
+        print(f"d = {d}")
+        if data_is_unprocessed_for(s3_boto3_client, d=d):
+            post_process_date(s3_fs_client, d=d)
