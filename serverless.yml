@@ -38,3 +38,14 @@ functions:
         - handler.handler_move_data_to_s3
       entryPoint:
         - '/lambda-entrypoint.sh'
+  post_process_yesterday:
+    memorySize: 4096
+    events:
+      - schedule: cron(15 0 ? * 2-6 *)
+    timeout: 600
+    image:
+      name: appimage
+      command:
+        - handler_post_process.handler_post_process_yesterday
+      entryPoint:
+        - '/lambda-entrypoint.sh'
