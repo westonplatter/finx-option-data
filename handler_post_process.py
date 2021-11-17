@@ -173,7 +173,7 @@ def data_is_unprocessed_for(s3_boto3_client, d: date) -> bool:
     return True
 
 
-def handler_post_process_today():
+def handler_post_process_today(event, context):
     s3_boto3_client = boto3.client("s3")
     s3_fs_client = s3fs.S3FileSystem()
 
@@ -183,7 +183,7 @@ def handler_post_process_today():
         post_process_date(s3_fs_client, d=d)
 
 
-def handler_post_process_yesterday():
+def handler_post_process_yesterday(event, context):
     s3_boto3_client = boto3.client("s3")
     s3_fs_client = s3fs.S3FileSystem()
 

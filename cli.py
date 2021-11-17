@@ -33,13 +33,13 @@ def do_move_data_to_s3():
 @core.command()
 def do_post_process_today():
     logger.debug("executing handler_post_process_today")
-    handler_post_process_today()
+    handler_post_process_today(None, None)
 
 
 @core.command()
 def do_post_process_yesterday():
     logger.debug("executing handler_post_process_today")
-    handler_post_process_yesterday()
+    handler_post_process_yesterday(None, None)
 
 
 @core.command()

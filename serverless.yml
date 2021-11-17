@@ -39,10 +39,10 @@ functions:
       entryPoint:
         - '/lambda-entrypoint.sh'
   post_process_yesterday:
-    memorySize: 1024 # may need to adjust as
+    memorySize: 4096
     events:
-      - schedule: cron(15 0 ? * TU-SAT *)
-    timeout: 240
+      - schedule: cron(15 0 ? * 2-6 *)
+    timeout: 600
     image:
       name: appimage
       command:
