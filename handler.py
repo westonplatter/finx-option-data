@@ -116,7 +116,7 @@ def store_data(session, option_chain) -> None:
 def gen_from_and_to_dates() -> Tuple[date, date]:
     tz = timezone("US/Eastern")
     now = datetime.now(tz)
-    to_date = now + timedelta(days=31)
+    to_date = now + timedelta(days=OPTIONS_SCAN_MAX_DTE)
     return (now.date(), to_date.date())
 
 
