@@ -42,7 +42,7 @@ TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
 
 # constants - financial
 OPTIONS_SCAN_SYMBOLS: List[str] = configs.get(
-    "OPTIONS_SCAN_SYMBOLS", "SPY,QQQ,TLT,AMZN,XLE,XLK,AAPL,USO"
+    "OPTIONS_SCAN_SYMBOLS", "SPY,QQQ,IWM,EEM,TLT,GLD,USO,XLE,XLK,AAPL,AMZN"
 ).split(",")
 OPTIONS_SCAN_MAX_DTE: int = int(configs.get("OPTIONS_SCAN_MAX_DTE", "60"))
 
