@@ -42,7 +42,7 @@ TDA_CREDENTIALS_FILE_NAME: str = "tda_api_creds.json"
 
 # constants - financial
 OPTIONS_SCAN_SYMBOLS: List[str] = configs.get(
-    "OPTIONS_SCAN_SYMBOLS", "SPY,QQQ,TLT,AMZN,XLE,XLK,AAPL,USO"
+    "OPTIONS_SCAN_SYMBOLS", "SPY,QQQ,IWM,EEM,TLT,GLD,USO,XLE,XLK,AAPL,AMZN"
 ).split(",")
 OPTIONS_SCAN_MAX_DTE: int = int(configs.get("OPTIONS_SCAN_MAX_DTE", "60"))
 
@@ -116,7 +116,7 @@ def store_data(session, option_chain) -> None:
 def gen_from_and_to_dates() -> Tuple[date, date]:
     tz = timezone("US/Eastern")
     now = datetime.now(tz)
-    to_date = now + timedelta(days=31)
+    to_date = now + timedelta(days=OPTIONS_SCAN_MAX_DTE)
     return (now.date(), to_date.date())
 
 
