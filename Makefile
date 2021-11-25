@@ -10,6 +10,9 @@ AWS_REGION ?= us-east-1
 help:
 	echo "todo"
 
+test:
+	pytest .
+
 config.tda:
 	python cli.py gen-tda-creds
 
@@ -25,7 +28,7 @@ docker.build:
 
 docker.local.fetch:
 	docker run -p 9000:8080 ${DOCKER_TAG} handler.handler_fetch_data
-	
+
 docker.local.move:
 	docker run \
 		-p 9000:8080 \
