@@ -25,3 +25,12 @@ def authenticate_with_tda():
     TDA_REDIRECT_URL = configs["TDA_REDIRECT_URL"]
     token_path = "tda_api_creds.json"
     client_from_manual_flow(TDA_CLIENT_ID, TDA_REDIRECT_URL, token_path)
+
+
+def drop_and_migrate():
+    from handler import Base, OptionData
+    from handler import create_engine
+
+    engine = create_engine()
+    OptionData.__table__.drop(engine)
+    Base.metadata.create_all(engine)

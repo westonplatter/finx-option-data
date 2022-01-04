@@ -5,8 +5,10 @@ import sys
 import tempfile
 import time
 from datetime import date, datetime, timedelta
+import datetime as dt
 from typing import Dict, List, Tuple
 
+import pytz
 import requests
 import numpy as np
 import pandas as pd
@@ -65,11 +67,11 @@ class OptionData(Base):
 
     id = Column(Integer, primary_key=True)
     symbol = Column(String)
-    quote_time = Column(BigInteger)
+    sample_time = Column(BigInteger)
     data = Column(JSONB)
 
     def __repr__(self):
-        return f"<OptionData(symbol={self.symbol} quote_time={self.quote_time})>"
+        return f"<OptionData(symbol={self.symbol} sample_time={self.sample_time})>"
 
 
 def create_engine() -> sqlalchemy.engine:
@@ -102,12 +104,11 @@ def gen_tda_client() -> Client:
         return client_from_token_file(tmpfile.name, TDA_CLIENT_ID)
 
 
-def store_data(session, option_chain) -> None:
+def store_data(session, option_chain: OptionData, sample_time: int) -> None:
     symbol: str = option_chain["underlying"]["symbol"]
-    quote_time: int = option_chain["underlying"]["quoteTime"]
     data: Dict = option_chain
 
-    option_data = OptionData(symbol=symbol, quote_time=quote_time, data=data)
+    option_data = OptionData(symbol=symbol, sample_time=sample_time, data=data)
 
     session.add(option_data)
     session.commit()
@@ -137,7 +138,7 @@ def fetch_data(tda_client: Client, symbol: str) -> Dict:
     return oc
 
 
-def transform_option_data_to_df(option_data) -> pd.DataFrame:
+def transform_option_data_to_df(option_data: OptionData) -> pd.DataFrame:
     def extract_option_contracts(option_map):
         result = []
         for _, v in option_map.items():
@@ -145,13 +146,14 @@ def transform_option_data_to_df(option_data) -> pd.DataFrame:
                 result.append(vv[0])
         return result
 
-    # trying to be memory efficient
-    # puts
+    ### trying to be memory efficient
+    # puts then calls
     both = extract_option_contracts(option_data.data["putExpDateMap"])
-    # calls
     both.extend(extract_option_contracts(option_data.data["callExpDateMap"]))
+    df = pd.DataFrame.from_records(both)
 
-    return pd.DataFrame.from_records(both)
+    df["sampleTimeInLong"] = option_data.sample_time
+    return df
 
 
 def write_df_to_s3(df) -> bool:
@@ -203,6 +205,8 @@ def write_df_to_s3(df) -> bool:
         "theoreticalVolatility",
         # 'optionDeliverablesList',
         "theoreticalOptionValue",
+        # custom adds
+        "sampleTimeInLong",
     ]
     columns_to_drop = list(set(list(df.columns)) - set(cols_to_keep))
 
@@ -249,6 +253,9 @@ def handler_fetch_data(event, context):
 
     tda_client = gen_tda_client()
 
+    # now in utc in ms
+    sample_time = datetime.timestamp(datetime.now(dt.timezone.utc)) * 1000
+
     option_chains = []
     for symbol in OPTIONS_SCAN_SYMBOLS:
         option_chain = fetch_data(tda_client, symbol)
@@ -260,7 +267,7 @@ def handler_fetch_data(event, context):
 
     for oc in option_chains:
         symbol: str = oc["underlying"]["symbol"]
-        store_data(session, oc)
+        store_data(session, oc, sample_time)
         logger.debug(f"Storing option chain [{symbol}] - finished")
 
     message = f"Successfully fetched option data for: {OPTIONS_SCAN_SYMBOLS}"
@@ -308,6 +315,7 @@ def handler_move_data_to_s3(event, context):
                 continue
 
             df = transform_option_data_to_df(option_data)
+
             del option_data
             dfs.append(df)
 

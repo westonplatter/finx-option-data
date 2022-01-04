@@ -1,3 +1,4 @@
+from pandas.core import series
 import boto3
 from datetime import date, timedelta
 from dotenv import dotenv_values
@@ -48,7 +49,16 @@ def write_df(s3_fs_client, file_name: str, df: pd.DataFrame) -> None:
     )
 
 
-def convert_timems_to_datetime(series, tz: str = None):
+def convert_timems_to_datetime(series: pd.Series, tz: str = None) -> pd.Series:
+    """Apply pd.to_dateime and tz_localize (if given)
+
+    Args:
+        series (pd.Series): series
+        tz (str, optional): the TZ to localize the time to. Defaults to None.
+
+    Returns:
+        pd.Series: series
+    """
     result = pd.to_datetime(series, unit="ms").dt
     if tz is None:
         return result
@@ -60,7 +70,7 @@ def convert_timems_to_weekday(series):
     return pd.to_datetime(series, unit="ms").dt.weekday
 
 
-def transform_df(df) -> pd.DataFrame:
+def transform_df(df: pd.DataFrame) -> pd.DataFrame:
     """Note - we mutate the in memory dataframe and return it"""
 
     # add underlying symbol
@@ -77,11 +87,15 @@ def transform_df(df) -> pd.DataFrame:
         series=df["quoteTimeInLong"], tz="US/Eastern"
     )
 
+    df["sample_time"] = convert_timems_to_datetime(
+        series=df["sampleTimeInLong"], tz="utc"
+    ).dt.tz_convert(tz="US/Eastern")
+
     # add expiration_weekday
     df["expiration_weekday"] = convert_timems_to_weekday(df.expirationDate)
 
     # set index on quote time
-    df.set_index("quote_time", drop=False, inplace=True)
+    df.set_index("sample_time", drop=False, inplace=True)
 
     # disregard data that's outside market hours, ET
     market_start_time = "09:30:00"

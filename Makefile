@@ -16,6 +16,9 @@ test:
 config.tda:
 	python cli.py gen-tda-creds
 
+config.db:
+	python cli.py drop-migrate-db
+
 fetch:
 	python cli.py do-fetch-data
 

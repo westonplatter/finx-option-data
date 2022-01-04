@@ -53,6 +53,13 @@ def gen_tda_creds():
 
 
 @core.command()
+def drop_migrate_db():
+    from configure import drop_and_migrate
+
+    drop_and_migrate()
+
+
+@core.command()
 def get_secret():
     handler_check_pg_password(None, None)
 
