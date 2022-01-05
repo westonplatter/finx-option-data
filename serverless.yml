@@ -30,7 +30,7 @@ functions:
   move:
     memorySize: 1024 # may need to adjust as
     events:
-      - schedule: cron(15 13,14,15,16,17,18,19,20 ? * MON-FRI *)
+      - schedule: cron(15 13,14,15,16,17,18,19,20,21,22 ? * MON-FRI *)
     timeout: 40
     image:
       name: appimage
