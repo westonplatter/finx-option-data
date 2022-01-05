@@ -19,7 +19,7 @@ functions:
   fetch:
     memorySize: 256
     events:
-      - schedule: cron(* 13-20 ? * MON-FRI *)
+      - schedule: cron(* 13-21 ? * MON-FRI *)
     timeout: 40
     image:
       name: appimage
