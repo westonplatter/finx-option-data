@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from dotenv import dotenv_values
 import hashlib
 from loguru import logger
+from os import getenv
 import pandas as pd
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -11,7 +12,8 @@ import s3fs
 from typing import List
 
 
-configs = dotenv_values(".env")
+stage = getenv("STAGE")
+configs = dotenv_values(f".env.{stage}")
 
 
 # constants - data

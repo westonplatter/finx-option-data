@@ -24,6 +24,8 @@ var/
 example.json
 tda_api_creds.json
 .env
+.env.prod
+.env.dev
 node_modules/*
 
 data

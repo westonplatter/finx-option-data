@@ -1,9 +1,11 @@
 from dotenv import dotenv_values
 from loguru import logger
+from os import getenv
 import s3fs
 
 
-configs = dotenv_values(".env")
+stage = getenv("STAGE")
+configs = dotenv_values(f".env.{stage}")
 
 
 # constants - data
