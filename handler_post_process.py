@@ -49,13 +49,13 @@ def write_df(s3_fs_client, file_name: str, df: pd.DataFrame) -> None:
     )
 
 
-def convert_timems_to_datetime(series: pd.Series, tz: str = None) -> pd.Series:
-    """Apply pd.to_dateime and tz_localize (if given)
+def convert_timems_to_datetime(series: pd.Series, tz: str = "US/Eastern") -> pd.Series:
+    """Apply pd.to_dateime and tz_localize
 
     Args:
         series (pd.Series): series
-        tz (str, optional): the TZ to localize the time to. Defaults to None.
-
+        tz (str, optional): the TZ to localize the time to. Default to
+                            'US/Eastern' where market data is sourced.
     Returns:
         pd.Series: series
     """
@@ -64,6 +64,19 @@ def convert_timems_to_datetime(series: pd.Series, tz: str = None) -> pd.Series:
         return result
     else:
         return result.tz_localize(tz=tz)
+
+
+def convert_timems_to_date(series: pd.Series, tz: str = "US/Eastern") -> pd.Series:
+    """Apply pd.to_datetime (similar to `convert_timems_to_datetime`) but only return the date
+
+    Args:
+        series (pd.Series): series
+        tz (str, optional): Timezone. Defaults to 'US/Eastern'.
+
+    Returns:
+        pd.Series: the `date`
+    """
+    return convert_timems_to_datetime(series=series, tz=tz).dt.date
 
 
 def convert_timems_to_weekday(series):
@@ -91,7 +104,10 @@ def transform_df(df: pd.DataFrame) -> pd.DataFrame:
         series=df["sampleTimeInLong"], tz="utc"
     ).dt.tz_convert(tz="US/Eastern")
 
-    # add expiration_weekday
+    # expiration date transformations
+    df["expiration_date"] = convert_timems_to_date(
+        df["expirationDate"], tz="US/Eastern"
+    )
     df["expiration_weekday"] = convert_timems_to_weekday(df.expirationDate)
 
     # set index on quote time
@@ -128,6 +144,7 @@ def process_folder(s3_fs_client, folder: str, root_path: str):
         "symbol",
         # added columns
         "expiration_weekday",
+        "expiration_date",
         "strike",
         "underlying_symbol",
     ]
