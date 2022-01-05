@@ -24,8 +24,13 @@ var/
 example.json
 tda_api_creds.json
 .env
-data
+.env.prod
+.env.dev
 node_modules/*
+
+data
+*.parquet
+*.gzip
 
 ## custom - data
 *.ipynb
