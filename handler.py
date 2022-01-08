@@ -22,12 +22,10 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from tda.auth import client_from_token_file
 from tda.client import Client
 
-from helpers import get_aws_secret, get_heroku_config, set_aws_secret
+from helpers import get_aws_secret, get_heroku_config, set_aws_secret, setup_logging
 
-
-stage = os.getenv("STAGE")
+stage = os.getenv("STAGE").lower()
 configs = dotenv_values(f".env.{stage}")
-
 
 # constants - data
 BUCKET_NAME: str = configs["BUCKET_NAME"]
@@ -50,17 +48,11 @@ OPTIONS_SCAN_SYMBOLS: List[str] = configs.get(
 OPTIONS_SCAN_MAX_DTE: int = int(configs.get("OPTIONS_SCAN_MAX_DTE", "60"))
 
 
-# DB models
+# Setup - DB models
 Base = declarative_base()
 
-
-def setup_logging():
-    logger.remove()
-
-    stage_name = os.getenv("STAGE", "dev")
-    log_level = logging.INFO if stage_name == "prod" else logging.DEBUG
-
-    logger.add(sys.stderr, level=log_level)
+# Setup - logging
+setup_logging()
 
 
 class OptionData(Base):

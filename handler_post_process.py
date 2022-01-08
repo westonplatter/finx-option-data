@@ -11,6 +11,7 @@ import pyarrow as pa
 import s3fs
 from typing import List
 
+from helpers import setup_logging, elapsed_timer
 
 stage = getenv("STAGE")
 configs = dotenv_values(f".env.{stage}")
@@ -19,6 +20,8 @@ configs = dotenv_values(f".env.{stage}")
 # constants - data
 BUCKET_NAME: str = configs["BUCKET_NAME"]
 
+# setup - logging
+setup_logging()
 
 def list_folders(s3_client, bucket_name: str, prefix: str):
     result = s3_client.list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")

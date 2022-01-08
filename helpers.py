@@ -1,3 +1,10 @@
+import logging
+import os
+import sys
+
+from loguru import logger
+
+
 def get_heroku_config(heroku_app_name: str, aws_secret_name: str) -> dict:
     import json
 
@@ -77,3 +84,20 @@ def set_aws_secret(secret_name: str, json_data: dict, **kwargs) -> None:
     client = session.client(service_name="secretsmanager", region_name=region_name)
 
     client.put_secret_value(SecretId=secret_name, SecretString=json.dumps(json_data))
+
+
+def setup_logging():
+    logger.remove()
+
+    stage_name = os.getenv("STAGE", "dev")
+    log_level = os.getenv("LOG_LEVEL", None)
+
+    if log_level:
+        if log_level == "INFO":
+            log_level_value = logging.INFO
+        elif log_level == "DEBUG":
+            log_level_value = logging.DEBUG
+    else:
+        log_level_value = logging.INFO if stage_name == "prod" else logging.DEBUG
+
+    logger.add(sys.stderr, level=log_level_value)
