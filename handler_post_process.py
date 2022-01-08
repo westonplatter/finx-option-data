@@ -165,7 +165,6 @@ def process_folder(s3_fs_client, folder: str, root_path: str):
     underlying_symbols = sorted(list(set(df.underlying_symbol.values)))
 
     for underlying_symbol in underlying_symbols:
-        logger.debug(f"processing {underlying_symbol}")
         ddfs: List[pd.DataFrame] = []
 
         symbol_df = df.query("underlying_symbol == @underlying_symbol")
@@ -182,7 +181,7 @@ def process_folder(s3_fs_client, folder: str, root_path: str):
             underlying_symbol_df = underlying_symbol_df.dropna(subset=["delta"])
 
             logger.debug(
-                f"process_folder for {underlying_symbol} took = {get_diff():.2f}"
+                f"process_folder for {underlying_symbol} took = {get_diff():.2f} seconds"
             )
 
         year, month, day = (

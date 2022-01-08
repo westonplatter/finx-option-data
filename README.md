@@ -26,3 +26,12 @@ BUCKET_NAME=your-bucket-name
 TDA_REDIRECT_URL=http://localhost
 DISCORD_CHANNEL_URL="https://discord.com/api/webhooks/123/abc-xyz"
 ```
+
+## Changelog
+Created by running,
+
+```sh
+make changelog
+```
+
+And requires having [`git-chglog`](https://github.com/git-chglog/git-chglog) installed.
