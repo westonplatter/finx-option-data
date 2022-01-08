@@ -240,3 +240,11 @@ def handler_post_process_last_x_days(x: int = 30):
         print(f"d = {d}")
         if data_is_unprocessed_for(s3_boto3_client, d=d):
             post_process_date(s3_fs_client, d=d)
+
+
+def handler_post_process_date(d: date):
+    s3_boto3_client = boto3.client("s3")
+    s3_fs_client = s3fs.S3FileSystem()
+
+    if data_is_unprocessed_for(s3_boto3_client, d=d):
+        post_process_date(s3_fs_client, d=d)

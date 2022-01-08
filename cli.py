@@ -1,4 +1,5 @@
 import click
+from datetime import datetime
 from loguru import logger
 
 from configure import authenticate_with_tda, write_example_env_file
@@ -9,7 +10,7 @@ from handler import (
 )
 from handler_post_process import (
     handler_post_process_today,
-    handler_post_process_yesterday,
+    handler_post_process_date,
 )
 
 
@@ -37,9 +38,12 @@ def do_post_process_today():
 
 
 @core.command()
-def do_post_process_yesterday():
-    logger.debug("executing handler_post_process_today")
-    handler_post_process_yesterday(None, None)
+@click.option("-d", "--date", "date_str", help="format = YYYY-mm-dd")
+def do_post_process_for_date(date_str: str):
+    logger.debug(f"executing do_post_process_for_date( date_str={date_str} )")
+
+    date_value = datetime.strptime(date_str, "%Y-%m-%d").date()
+    handler_post_process_date(d=date_value)
 
 
 @core.command()
