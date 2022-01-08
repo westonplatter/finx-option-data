@@ -165,24 +165,15 @@ def process_folder(s3_fs_client, folder: str, root_path: str):
     underlying_symbols = sorted(list(set(df.underlying_symbol.values)))
 
     for underlying_symbol in underlying_symbols:
-        ddfs: List[pd.DataFrame] = []
+        logger.debug(f"processing {underlying_symbol}")
 
         symbol_df = df.query("underlying_symbol == @underlying_symbol")
-        symbols = list(set(symbol_df.symbol.values))
 
-        with elapsed_timer() as get_diff:
-            for symbol in symbols:
-                ddfs.append(
-                    symbol_df[symbol_df["symbol"] == symbol].resample("1min").agg(agg_dict)
-                )
-
-            underlying_symbol_df = pd.concat(ddfs)
-            del ddfs
-            underlying_symbol_df = underlying_symbol_df.dropna(subset=["delta"])
-
-            logger.debug(
-                f"process_folder for {underlying_symbol} took = {get_diff():.2f} seconds"
-            )
+        underlying_symbol_df = (
+            symbol_df.groupby([pd.Grouper(freq="1min"), "symbol"])
+            .agg(agg_dict)
+            .droplevel(1)
+        )
 
         year, month, day = (
             underlying_symbol_df.index.year[0],
@@ -195,7 +186,7 @@ def process_folder(s3_fs_client, folder: str, root_path: str):
             s3_fs_client=s3_fs_client, file_name=file_name, df=underlying_symbol_df
         )
         logger.debug(
-            f"{underlying_symbol}. symbol_count={len(symbols)}. file_name={file_name}"
+            f"{underlying_symbol}. symbol_count={len(set(underlying_symbol_df.symbol.values))}. file_name={file_name}"
         )
 
 

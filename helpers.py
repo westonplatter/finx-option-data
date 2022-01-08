@@ -111,4 +111,4 @@ def elapsed_timer():
     elapser = lambda: default_timer() - start
     yield lambda: elapser()
     end = default_timer()
-    elapser = lambda: end-start
+    elapser = lambda: end - start
