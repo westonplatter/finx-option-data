@@ -18,7 +18,7 @@
 {{ range .CommitGroups -}}
 ### {{ .Title }}
 {{ range .Commits -}}
-- {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Subject }} {{.Hash.Short}} ({{ .Committer.Name }})
+- {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Subject }} ({{ .Committer.Name }}) [goto]({{ $.Info.RepositoryURL }}/commit/{{.Hash.Long}})
 {{ end }}
 {{ end -}}
 
