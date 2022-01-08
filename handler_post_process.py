@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from dotenv import dotenv_values
 import hashlib
 from loguru import logger
-from os import getenv
+import os
 import pandas as pd
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -13,7 +13,8 @@ from typing import List
 
 from helpers import setup_logging, elapsed_timer
 
-stage = getenv("STAGE")
+
+stage = os.getenv("STAGE").lower()
 configs = dotenv_values(f".env.{stage}")
 
 
@@ -22,6 +23,7 @@ BUCKET_NAME: str = configs["BUCKET_NAME"]
 
 # setup - logging
 setup_logging()
+
 
 def list_folders(s3_client, bucket_name: str, prefix: str):
     result = s3_client.list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
@@ -33,12 +35,15 @@ def list_folders(s3_client, bucket_name: str, prefix: str):
 
 
 def fetch_df(s3_fs_client, folder: str) -> pd.DataFrame:
-    s3_folder_url = (f"s3://{BUCKET_NAME}/{folder}")[:-1]
-    df = (
-        pq.ParquetDataset(s3_folder_url, filesystem=s3_fs_client)
-        .read_pandas()
-        .to_pandas()
-    )
+    with elapsed_timer() as get_diff:
+        s3_folder_url = (f"s3://{BUCKET_NAME}/{folder}")[:-1]
+        df = (
+            pq.ParquetDataset(s3_folder_url, filesystem=s3_fs_client)
+            .read_pandas()
+            .to_pandas()
+        )
+        logger.debug(f"fetch_df took = {get_diff():.2f} seconds")
+
     return df
 
 
@@ -154,29 +159,42 @@ def process_folder(s3_fs_client, folder: str, root_path: str):
         "underlying_symbol",
     ]
     agg_dict = {}
-    for c in columns_to_aggregate:
-        agg_dict[c] = "last"
+    for column in columns_to_aggregate:
+        agg_dict[column] = "last"
 
     underlying_symbols = sorted(list(set(df.underlying_symbol.values)))
 
     for underlying_symbol in underlying_symbols:
+        logger.debug(f"processing {underlying_symbol}")
         ddfs: List[pd.DataFrame] = []
 
         symbol_df = df.query("underlying_symbol == @underlying_symbol")
         symbols = list(set(symbol_df.symbol.values))
 
-        for symbol in symbols:
-            ddf = symbol_df.query("symbol == @symbol").resample("1min").agg(agg_dict)
-            ddfs.append(ddf)
+        with elapsed_timer() as get_diff:
+            for symbol in symbols:
+                ddfs.append(
+                    symbol_df[symbol_df["symbol"] == symbol].resample("1min").agg(agg_dict)
+                )
 
-        x = pd.concat(ddfs)
-        del ddfs
-        x = x.dropna(subset=["delta"])
+            underlying_symbol_df = pd.concat(ddfs)
+            del ddfs
+            underlying_symbol_df = underlying_symbol_df.dropna(subset=["delta"])
 
-        year, month, day = x.index.year[0], x.index.month[0], x.index.day[0]
+            logger.debug(
+                f"process_folder for {underlying_symbol} took = {get_diff():.2f}"
+            )
+
+        year, month, day = (
+            underlying_symbol_df.index.year[0],
+            underlying_symbol_df.index.month[0],
+            underlying_symbol_df.index.day[0],
+        )
         file_name = f"{root_path}/{year}/{month}/{day}/{underlying_symbol}"
 
-        write_df(s3_fs_client=s3_fs_client, file_name=file_name, df=x)
+        write_df(
+            s3_fs_client=s3_fs_client, file_name=file_name, df=underlying_symbol_df
+        )
         logger.debug(
             f"{underlying_symbol}. symbol_count={len(symbols)}. file_name={file_name}"
         )
@@ -206,6 +224,7 @@ def data_is_unprocessed_for(s3_boto3_client, d: date) -> bool:
         # finished data already there
         return False
 
+    logger.debug(f"date={d} is unprocessed")
     return True
 
 

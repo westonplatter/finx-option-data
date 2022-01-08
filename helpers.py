@@ -1,6 +1,8 @@
+from contextlib import contextmanager
 import logging
 import os
 import sys
+from timeit import default_timer
 
 from loguru import logger
 
@@ -101,3 +103,12 @@ def setup_logging():
         log_level_value = logging.INFO if stage_name == "prod" else logging.DEBUG
 
     logger.add(sys.stderr, level=log_level_value)
+
+
+@contextmanager
+def elapsed_timer():
+    start = default_timer()
+    elapser = lambda: default_timer() - start
+    yield lambda: elapser()
+    end = default_timer()
+    elapser = lambda: end-start
