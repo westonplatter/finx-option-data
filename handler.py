@@ -24,7 +24,7 @@ from tda.client import Client
 
 from helpers import get_aws_secret, get_heroku_config, set_aws_secret, setup_logging
 
-stage = os.getenv("STAGE").lower()
+stage = os.getenv("STAGE", "prod").lower()
 configs = dotenv_values(f".env.{stage}")
 
 # constants - data
