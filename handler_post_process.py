@@ -14,7 +14,7 @@ from typing import List
 from helpers import setup_logging, elapsed_timer
 
 
-stage = os.getenv("STAGE").lower()
+stage = os.getenv("STAGE", "prod").lower()
 configs = dotenv_values(f".env.{stage}")
 
 
