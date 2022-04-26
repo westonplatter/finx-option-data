@@ -24,6 +24,8 @@ from tda.client import Client
 
 from helpers import get_aws_secret, get_heroku_config, set_aws_secret, setup_logging
 
+from finx_option_data.utils import chunks
+
 stage = os.getenv("STAGE", "prod").lower()
 configs = dotenv_values(f".env.{stage}")
 
@@ -230,11 +232,6 @@ def write_df_to_s3(df) -> bool:
 
     return True
 
-
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
 
 
 def discord_post_message(message: str) -> None:
