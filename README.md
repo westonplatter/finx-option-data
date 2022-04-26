@@ -44,3 +44,4 @@ DISCORD_CHANNEL_URL="https://discord.com/api/webhooks/123/abc-xyz"
     - finx_option_data intelligent operations
     - utility ops (glue)
 - [ ] create better setup instructions
+- [ ] setup integration tests
