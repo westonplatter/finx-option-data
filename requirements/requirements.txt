@@ -2,6 +2,7 @@ boto3
 fsspec
 heroku3
 loguru
+loman
 pandas==1.2.4
 psycopg2-binary
 pyarrow
@@ -11,3 +12,4 @@ requests
 s3fs
 sqlalchemy
 tda-api
+

@@ -1,7 +1,7 @@
 FROM public.ecr.aws/lambda/python:3.8
 
-COPY requirements.txt ./
-RUN pip install install -r requirements.txt
+COPY requirements/requirements.txt ./
+RUN pip install install -r requirements/requirements.txt
 
 COPY handler.py ./
 COPY handler_post_process.py ./
