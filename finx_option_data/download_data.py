@@ -18,7 +18,7 @@ def download_parquet_file_raw(config: Config, dt: pd.Timestamp):
     parquet_files = fs.glob(f"{key}/*")
 
     for file in parquet_files:
-        file_dir = os.path.dirname(os.path.realpath('__file__'))
+        file_dir = os.path.dirname(os.path.realpath("__file__"))
         new_file_name = file.replace(
             f"{config.bucket_name}/finx-option-data/", f"{file_dir}/data/raw/"
         )
@@ -28,14 +28,15 @@ def download_parquet_file_raw(config: Config, dt: pd.Timestamp):
         logger.info(f"Downloaded folder -- {file}")
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
 
     import os
-    file_dir = os.path.dirname(os.path.realpath('__file__'))
+
+    file_dir = os.path.dirname(os.path.realpath("__file__"))
     stage = os.getenv("STAGE", "prod").lower()
     file_name = f".env.{stage}"
-    full_path = os.path.join(file_dir, f'./{file_name}')
+    full_path = os.path.join(file_dir, f"./{file_name}")
     config = Config(full_path)
-    
+
     dt: pd.Timestamp = pd.to_datetime("2022-4-25")
     download_parquet_file_raw(config, dt)

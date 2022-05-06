@@ -233,7 +233,6 @@ def write_df_to_s3(df) -> bool:
     return True
 
 
-
 def discord_post_message(message: str) -> None:
     requests.post(DISCORD_CHANNEL_URL, json={"content": message})
 
