@@ -71,13 +71,14 @@ def transform_add_last_trading_day_week_number(df):
 
 
 def transform_columns_datetime(df):
-    for c in [
+    datetime_cols = [
         "expirationDate",
         "lastTradingDay",
         "quoteTimeInLong",
         "tradeTimeInLong",
         "sampleTimeInLong",
-    ]:
+    ]
+    for c in datetime_cols:
         df[c] = pd.to_datetime(df["expirationDate"], unit="ms")
     return df
 
