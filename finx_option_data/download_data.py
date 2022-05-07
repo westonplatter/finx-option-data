@@ -38,5 +38,5 @@ if __name__ == "__main__":
     full_path = os.path.join(file_dir, f"./{file_name}")
     config = Config(full_path)
 
-    dt: pd.Timestamp = pd.to_datetime("2022-4-25")
+    dt: pd.Timestamp = pd.to_datetime("2022-4-26")
     download_parquet_file_raw(config, dt)
