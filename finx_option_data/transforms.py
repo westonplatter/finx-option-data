@@ -48,7 +48,7 @@ def _week_of_month(dt):
 
 
 def _es_day_of_week(dt) -> str:
-    """Returns the /ES week day convention"""
+    """Returns the /ES weekday convention"""
     es_weekday = {
         0: "A",
         1: "B",
