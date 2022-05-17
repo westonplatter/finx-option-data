@@ -8,6 +8,10 @@ test:
 changelog:
 	git-chglog -o CHANGELOG.md
 
+
+env.update:
+	pip install -r requiremements/requirements.txt
+
 #------------------------------------------------------------------------------
 # Config Actions
 #------------------------------------------------------------------------------
