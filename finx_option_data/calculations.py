@@ -12,7 +12,7 @@ def calc_front_back_mid_diff(df: pd.DataFrame) -> None:
     df["mid_diff"] = -df["mid_f"] + df["mid_b"]
     return None
 
-def calc_front_back_volitality_diff(df: pd.DataFrame) -> None:
+def calc_front_back_volatility_diff(df: pd.DataFrame) -> None:
     """
     Calc the volatility diff between -volatility_f + volatility_b
     Stores in volatility_diff.
