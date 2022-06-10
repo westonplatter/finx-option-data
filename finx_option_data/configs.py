@@ -30,3 +30,7 @@ class Config(object):
         engine = create_engine(conn_str, echo=True, future=True)
         Base.metadata.create_all(engine)
         return engine
+    
+    @property
+    def polygon_api_key(self):
+        return self.configs.get("POLYGON_API_KEY", None)
