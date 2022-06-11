@@ -10,7 +10,8 @@ changelog:
 
 
 env.update:
-	pip install -r requiremements/requirements.txt
+	pip install -r requirements/requirements.txt
+
 
 #------------------------------------------------------------------------------
 # Config Actions

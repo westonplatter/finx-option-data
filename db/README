@@ -1,0 +1,10 @@
+# Option Data - database
+
+## Adding migration
+```
+alembic migrate -m "describe your changes"
+# write upgrade and downgrade logic
+# alembic upgrade ${REVISION}
+```
+
+
