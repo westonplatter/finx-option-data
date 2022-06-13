@@ -4,7 +4,12 @@
 ```
 alembic migrate -m "describe your changes"
 # write upgrade and downgrade logic
-# alembic upgrade ${REVISION}
+alembic upgrade head
+# or alembic upgrade head +1
 ```
 
+## Downgrading
 
+```
+alembic downgrade -1
+```

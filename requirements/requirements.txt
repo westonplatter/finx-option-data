@@ -12,4 +12,6 @@ pytz
 requests
 s3fs
 sqlalchemy
-tda-api
+
+
+pandas_market_calendars
