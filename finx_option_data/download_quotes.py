@@ -83,15 +83,18 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
     # configs
     strike_distance = 20
     nyse = mcal.get_calendar("NYSE")
-    
+
     with config.engine_metrics.connect() as con:
         df = pd.read_sql(query, con)
-    
+
     for ix, row in df.iterrows():
         base_strike = int(row["close"])
-        strikes = list(np.array([x for x in range(-strike_distance, strike_distance)]) + np.array([base_strike]))
+        strikes = list(
+            np.array([x for x in range(-strike_distance, strike_distance)])
+            + np.array([base_strike])
+        )
 
-        option_type = 'call'
+        option_type = "call"
         for strike in strikes:
             url = f"https://api.polygon.io/v3/reference/options/contracts?"
             url += f"underlying_ticker={ticker}"
@@ -103,31 +106,32 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
             url += f"&as_of={row['dt'].date().strftime('%Y-%m-%d')}"
             res = requests.get(url)
 
-            dt_market_close = pd.to_datetime(nyse.schedule(start_date=row['dt'], end_date=row['dt']).market_close.values[0])
+            dt_market_close = pd.to_datetime(
+                nyse.schedule(
+                    start_date=row["dt"], end_date=row["dt"]
+                ).market_close.values[0]
+            )
 
             if res.status_code == 200:
-                data = res.json()['results']
-                dates = [pd.to_datetime(d['expiration_date']).date() for d in data]
+                data = res.json()["results"]
+                dates = [pd.to_datetime(d["expiration_date"]).date() for d in data]
                 sorted(dates)
                 date_min, date_max = dates[0], dates[-1]
                 ddf = nyse.schedule(start_date=date_min, end_date=date_max)
                 ddf = ddf[ddf.index.isin(dates)].copy()
 
-                opdf = pd.DataFrame({
-                    "ticker": "TBD",
-                    "dt": dt_market_close,
-                    "underlying_ticker": ticker,
-                    "option_type": option_type,
-                    "exp_date": ddf.market_close.values, 
-                    "strike": strike
-                })
+                opdf = pd.DataFrame(
+                    {
+                        "ticker": "TBD",
+                        "dt": dt_market_close,
+                        "underlying_ticker": ticker,
+                        "option_type": option_type,
+                        "exp_date": ddf.market_close.values,
+                        "strike": strike,
+                    }
+                )
 
                 df_insert_do_nothing(opdf, config.engine_metrics, OptionQuote)
-
-
-    
-
-
 
 
 if __name__ == "__main__":
