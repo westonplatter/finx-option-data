@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 import time
 
@@ -5,6 +6,7 @@ import time
 import pandas_market_calendars as mcal
 import pandas as pd
 import numpy as np
+from pytest import param
 import requests
 from sqlalchemy.sql import select
 from sqlalchemy.orm import Session
@@ -41,7 +43,7 @@ def gen_quotes_to_fetch(config: Config, ticker: str) -> None:
 
 def fetch_quotes_next(config: Config) -> None:
     query = text(
-        f"""select * from {StockQuote.__tablename__} where fetched = false order by dt limit 4"""
+        f"""select * from {StockQuote.__tablename__} where fetched = false order by dt limit 300"""
     )
 
     with config.engine_metrics.connect() as con:
@@ -67,9 +69,10 @@ def fetch_quotes_next(config: Config) -> None:
             row["fetched"] = True
             # replace row with updated values
             df.loc[ix] = row
+            print(".", end="", flush=True)
 
         # to not hit the free API limit
-        time.sleep(10)
+        time.sleep(12)
 
     df_upsert(df, config.engine_metrics, StockQuote)
 
@@ -77,25 +80,30 @@ def fetch_quotes_next(config: Config) -> None:
 def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
     # TODO(weston) - change this query to detech the absent of a options data at start/end date with
     query = text(
-        f"""select * from {StockQuote.__tablename__} where ticker = '{ticker}' order by dt asc limit 1"""
+        f"""select * from {StockQuote.__tablename__} where ticker = '{ticker}' order by dt asc limit 10"""
     )
 
     # configs
+    MAX_DAYS_OUT = 70
     strike_distance = 20
     nyse = mcal.get_calendar("NYSE")
 
     with config.engine_metrics.connect() as con:
         df = pd.read_sql(query, con)
 
-    for ix, row in df.iterrows():
+    opdfs = []
+
+    for _, row in df.iterrows():
         base_strike = int(row["close"])
         strikes = list(
             np.array([x for x in range(-strike_distance, strike_distance)])
             + np.array([base_strike])
         )
 
-        option_type = "call"
+        option_type = "call"  # TODO(weston) - change add put option type
         for strike in strikes:
+            row_date = row["dt"].date()
+            expiration_date_max = row_date + timedelta(days=MAX_DAYS_OUT)
             url = f"https://api.polygon.io/v3/reference/options/contracts?"
             url += f"underlying_ticker={ticker}"
             url += f"&contract_type={option_type}"
@@ -103,7 +111,8 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
             url += f"&expired=false"
             url += f"&limit=30"
             url += f"&apiKey={config.polygon_api_key}"
-            url += f"&as_of={row['dt'].date().strftime('%Y-%m-%d')}"
+            url += f"&as_of={row_date.strftime('%Y-%m-%d')}"
+            url += f"&expiration_date.lte={expiration_date_max.strftime('%Y-%m-%d')}"
             res = requests.get(url)
 
             dt_market_close = pd.to_datetime(
@@ -114,7 +123,13 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
 
             if res.status_code == 200:
                 data = res.json()["results"]
-                dates = [pd.to_datetime(d["expiration_date"]).date() for d in data]
+                if data == []:
+                    continue
+                all_dates = [pd.to_datetime(d["expiration_date"]).date() for d in data]
+                dates = []
+                for x in all_dates:
+                    if (x - row_date) < timedelta(days=MAX_DAYS_OUT):
+                        dates.append(x)
                 sorted(dates)
                 date_min, date_max = dates[0], dates[-1]
                 ddf = nyse.schedule(start_date=date_min, end_date=date_max)
@@ -130,8 +145,11 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
                         "strike": strike,
                     }
                 )
+                opdfs.append(opdf)
+                print(".", end="", flush=True)
 
-                df_insert_do_nothing(opdf, config.engine_metrics, OptionQuote)
+        ins_df = pd.concat(opdfs)
+        df_insert_do_nothing(ins_df, config.engine_metrics, OptionQuote)
 
 
 if __name__ == "__main__":
