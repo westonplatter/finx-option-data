@@ -1,7 +1,7 @@
 from datetime import timedelta
+from optparse import Option
 import os
 import time
-
 
 import pandas_market_calendars as mcal
 import pandas as pd
@@ -16,6 +16,8 @@ import sqlalchemy as sa
 from finx_option_data.models import StockQuote, OptionQuote
 from finx_option_data.configs import Config
 from finx_option_data.data_ops import df_upsert, df_insert_do_nothing
+
+from finx_option_pricer.option import Option
 
 
 def gen_quotes_to_fetch(config: Config, ticker: str) -> None:
@@ -77,6 +79,12 @@ def fetch_quotes_next(config: Config) -> None:
     df_upsert(df, config.engine_metrics, StockQuote)
 
 
+def strike_put_call_combinations(strikes):
+    option_types = ["put", "call"]
+    arr = np.array(np.meshgrid(strikes, option_types)).T.reshape(-1,2)
+    return [[int(x), y] for x,y in arr]
+
+
 def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
     # TODO(weston) - change this query to detech the absent of a options data at start/end date with
     query = text(
@@ -86,7 +94,6 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
     # configs
     MAX_DAYS_OUT = 70
     strike_distance = 20
-    nyse = mcal.get_calendar("NYSE")
 
     with config.engine_metrics.connect() as con:
         df = pd.read_sql(query, con)
@@ -94,18 +101,18 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
     opdfs = []
 
     for _, row in df.iterrows():
-        base_strike = int(row["close"])
         strikes = list(
             np.array([x for x in range(-strike_distance, strike_distance)])
-            + np.array([base_strike])
+            + np.array([int(row["close"])])
         )
 
-        option_type = "call"  # TODO(weston) - change add put option type
-        for strike in strikes:
+        for strike, option_type in strike_put_call_combinations(strikes):
             row_date = row["dt"].date()
             expiration_date_max = row_date + timedelta(days=MAX_DAYS_OUT)
+            underlying_ticker = row["ticker"]
+
             url = f"https://api.polygon.io/v3/reference/options/contracts?"
-            url += f"underlying_ticker={ticker}"
+            url += f"underlying_ticker={underlying_ticker}"
             url += f"&contract_type={option_type}"
             url += f"&strike_price={strike}"
             url += f"&expired=false"
@@ -115,41 +122,83 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
             url += f"&expiration_date.lte={expiration_date_max.strftime('%Y-%m-%d')}"
             res = requests.get(url)
 
-            dt_market_close = pd.to_datetime(
-                nyse.schedule(
-                    start_date=row["dt"], end_date=row["dt"]
-                ).market_close.values[0]
-            )
-
             if res.status_code == 200:
                 data = res.json()["results"]
                 if data == []:
                     continue
-                all_dates = [pd.to_datetime(d["expiration_date"]).date() for d in data]
-                dates = []
-                for x in all_dates:
-                    if (x - row_date) < timedelta(days=MAX_DAYS_OUT):
-                        dates.append(x)
-                sorted(dates)
-                date_min, date_max = dates[0], dates[-1]
-                ddf = nyse.schedule(start_date=date_min, end_date=date_max)
-                ddf = ddf[ddf.index.isin(dates)].copy()
+                ddf = pd.DataFrame(data)
+                ddf.rename(columns={"strike_price":"strike", "contract_type": "option_type", "expiration_date": "exp_date"}, inplace=True)
+                ddf.exp_date = pd.to_datetime(ddf.exp_date)
+                ddf.drop(columns=["cfi", "exercise_style", "primary_exchange", "shares_per_contract"], axis=1, inplace=True)
+                ddf["dt"] = row["dt"]
+                opdfs.append(ddf)
 
-                opdf = pd.DataFrame(
-                    {
-                        "ticker": "TBD",
-                        "dt": dt_market_close,
-                        "underlying_ticker": ticker,
-                        "option_type": option_type,
-                        "exp_date": ddf.market_close.values,
-                        "strike": strike,
-                    }
-                )
-                opdfs.append(opdf)
                 print(".", end="", flush=True)
 
         ins_df = pd.concat(opdfs)
         df_insert_do_nothing(ins_df, config.engine_metrics, OptionQuote)
+
+
+def gen_option_quotes_next(config: Config) -> None:
+    query = text(
+        f"""select * from {OptionQuote.__tablename__} where (fetched = false or fetched is null) order by dt desc limit 50"""
+    )
+
+    # TODO(weston) - let's look up all spot prices at the beginning and then fill pull from df
+    stock_price_query = text(
+        f"""select close from {StockQuote.__tablename__} where dt = :dt and ticker = :underlying_ticker"""
+    )
+
+    prices = {}
+
+    with config.engine_metrics.connect() as con:
+        df = pd.read_sql(query, con)
+
+        for ix, row in df.iterrows():
+            # gen url
+            ticker = row["ticker"]
+            date = row["dt"].date().strftime('%Y-%m-%d')
+            url = f"https://api.polygon.io/v1/open-close/{ticker}/{date}?adjusted=true&apiKey={config.polygon_api_key}"
+            # make request
+            res = requests.get(url)
+            # parse response
+            if res.status_code == 200:
+                data = res.json()
+                row["open"] = data["open"]
+                row["close"] = data["close"]
+                row["high"] = data["high"]
+                row["low"] = data["low"]
+                row["volume"] = data["volume"]
+                row["pre_market"] = data["preMarket"]
+                row["after_market"] = data["afterHours"]
+                row["fetched"] = True
+                
+                spot = None
+                key = (row["dt"], row["underlying_ticker"])
+                if key in prices:
+                    spot = prices[key]
+                else:
+                    result = pd.read_sql(stock_price_query, con, params=dict(dt=row["dt"], underlying_ticker=row["underlying_ticker"]))
+                    spot = result.close.values[0]
+                    prices[key] = spot
+                    
+                row['dte'] = (row['exp_date'] - row['dt'].date()).days
+                dte_frac = row['dte'] / 252
+                option = Option(S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=None)
+                row['iv'] = option.iv(row.close)
+                option = Option(S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=row['iv'])
+                # everything based on IV 
+                row['delta'] = option.delta
+                row['theta'] = option.theta
+                row['gamma'] = option.gamma
+                row['vega'] = option.vega
+                # replace row with updated values
+                df.loc[ix] = row
+                print(".", end="", flush=True)
+
+
+    df_upsert(df, config.engine_metrics, OptionQuote)
+
 
 
 if __name__ == "__main__":
@@ -161,4 +210,5 @@ if __name__ == "__main__":
 
     # gen_quotes_to_fetch(config=config, ticker="SPY")
     # fetch_quotes_next(config=config)
-    gen_option_quotes_to_fetch(config=config, ticker="SPY")
+    # gen_option_quotes_to_fetch(config=config, ticker="SPY")
+    gen_option_quotes_next(config=config)
