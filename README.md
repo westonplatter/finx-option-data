@@ -1,6 +1,11 @@
 # finx-option-data
 Fetch, store, and warehouse Option Data
 
+```
+cd ../finx-option-pricer && pip install -e . && cd finx-option-data
+pip install -e .
+```
+
 ## Quick start
 
 @TODO - update to describe how to setup configurations in AWS Secret Param store vs .env.prod file.
