@@ -230,12 +230,12 @@ def gen_option_quotes_next(config: Config) -> None:
 
 
 
-def gen_fm_calendars():
+def gen_fm_calendars(config, dt):
     from finx_option_data.transforms import gen_friday_and_following_monday
     from finx_option_data.models import StrategyTimespreads
 
     query = sa.text("select * from option_quotes where underlying_ticker = :underlying_ticker and date(dt) = :dt")
-    df = pd.read_sql(query, config.engine_metrics, params={"dt": pd.to_datetime("2022-01-03"), "underlying_ticker": "SPY"})
+    df = pd.read_sql(query, config.engine_metrics, params={"dt": dt, "underlying_ticker": "SPY"})
     ddf = gen_friday_and_following_monday(df)
     df_insert_do_nothing(ddf, config.engine_metrics, StrategyTimespreads)
 
@@ -251,6 +251,14 @@ if __name__ == "__main__":
     # gen_quotes_to_fetch(config=config, ticker="SPY")
     # fetch_quotes_next(config=config)
     # gen_option_quotes_to_fetch(config=config, ticker="SPY")
-    gen_option_quotes_next(config=config)
+    # gen_option_quotes_next(config=config)
 
-    # gen_fm_calendars()
+    dt = pd.to_datetime("2022-01-03")
+    gen_fm_calendars(config, dt)
+
+    # select ts.id, ts.id_b, b.id, b.iv as biv, ts.id_f, f.id, f.iv as fiv, f.iv-b.iv as ivdiff, date(ts.dt) as dt, f.exp_date, b.exp_date, b.close-f.close as pricediff, f.delta, f.strike
+    # from strategy_timespreads as ts
+    # join option_quotes as b on b.id = ts.id_b
+    # join option_quotes as f on f.id = ts.id_f
+    # where f.dte > 10 and f.delta > 0.4 and f.delta < 0.6 and f.option_type = 'call'
+    # order by f.exp_date, f.strike
