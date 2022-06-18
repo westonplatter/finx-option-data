@@ -155,8 +155,12 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
 
 
 def gen_option_quotes_next(config: Config) -> None:
+    # query = text(
+    #     f"""select * from {OptionQuote.__tablename__} where (fetched = false or fetched is null) order by dt desc limit 1000"""
+    # )
+
     query = text(
-        f"""select * from {OptionQuote.__tablename__} where (fetched = false or fetched is null) order by dt desc limit 50"""
+        f"""select * from {OptionQuote.__tablename__} where (iv is null) order by dt desc limit 1000"""
     )
 
     # TODO(weston) - let's look up all spot prices at the beginning and then fill pull from df
@@ -208,7 +212,8 @@ def gen_option_quotes_next(config: Config) -> None:
                 option = Option(
                     S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=None
                 )
-                row["iv"] = option.iv(row.close)
+                # store iv as a number, not a percent
+                row["iv"] = option.iv(row.close)*100.0
                 option = Option(
                     S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=row["iv"]
                 )
@@ -246,6 +251,6 @@ if __name__ == "__main__":
     # gen_quotes_to_fetch(config=config, ticker="SPY")
     # fetch_quotes_next(config=config)
     # gen_option_quotes_to_fetch(config=config, ticker="SPY")
-    # gen_option_quotes_next(config=config)
+    gen_option_quotes_next(config=config)
 
-    gen_fm_calendars()
+    # gen_fm_calendars()
