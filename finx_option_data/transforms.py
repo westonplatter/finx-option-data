@@ -16,7 +16,7 @@ def find_matching_row(
     Args:
         xdf (pd.DataFrame): df to look in
         row (df row): option row
-        dte_diff (int, optional): row.daysToExpiration - df.daysToExpiration. Defaults to 3 for matching Monday with previous Friday.
+        dte_diff (int, optional): row.dte - df.dte. Defaults to 3 for matching Monday with previous Friday.
         strike_shift (float, optional): strike diff. Defaults to 0.0.
         call_put_inverse (bool, optional): True to inverse. Eg, True Call -> Put. Defaults to False.
 
@@ -24,11 +24,11 @@ def find_matching_row(
         (pd.DataFrame): single row df
     """
     strike = row.strike + strike_diff
-    cp = ("c" if row.call_put == "p" else "P") if call_put_inverse else row.call_put
+    cp = ("call" if row['option_type'] == "put" else "put") if call_put_inverse else row['option_type']
 
-    condition_cp = xdf["call_put"] == cp
+    condition_cp = xdf["option_type"] == cp
     condition_strike = xdf["strike"] == strike
-    condition_dte_diff = row["daysToExpiration"] - xdf["daysToExpiration"] == dte_diff
+    condition_dte_diff = row["dte"] - xdf["dte"] == dte_diff
 
     matches = xdf[(condition_cp) & (condition_strike) & (condition_dte_diff)]
 
@@ -96,3 +96,38 @@ def transform_add_strike(df):
 def transform_add_call_put(df):
     df["call_put"] = np.where(df["symbol"].str.contains("C"), "c", "p")
     return df
+
+
+def gen_friday_and_following_monday(input_df):
+    """
+    Generate df with pointers (id and polygon option tickers) for front and back options
+
+    Input:
+        input_df(pd.DataFrame): df
+
+    Returns:
+        df(pd.DataFrame): with columns = ["ticker_f", "ticker_b", "id_f", "id_b", "desc"]
+    """
+    dte_diff = 3
+    description = f"fm{abs(3)}dte_calendar"
+    back_weekday = 0
+
+    assert len(list(set(input_df['dt'].values))) == 1, "there is more than 1 dt value"
+
+    df = input_df.copy()
+    df['front_option_id'] = None
+    
+    for _, grouped in df.groupby(["strike", "option_type"]):
+        for idx, row in grouped.iterrows():
+            # iterate through all the back (ie, not front) options
+            if row['exp_date'].weekday() == back_weekday:
+                # find the match front option
+                last_ew_row = find_matching_row(df, row, dte_diff=dte_diff)
+                if last_ew_row is not None:
+                    # if we can find a matching front option, record id (primary key for db table)
+                    df.loc[idx, "front_option_id"] = last_ew_row.id
+        
+    comp = pd.merge(df, df, left_on="id", right_on="front_option_id", suffixes=("_f", "_b"))
+    comp["desc"] = description
+    comp.rename(columns={"dt_f": "dt"}, inplace=True)
+    return comp[["dt", "ticker_f", "ticker_b", "id_f", "id_b", "desc"]]

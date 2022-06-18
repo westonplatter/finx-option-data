@@ -27,7 +27,8 @@ class Config(object):
     @property
     def engine_metrics(self):
         conn_str = self.metrics_postgres_connstr
-        engine = create_engine(conn_str, echo=True, future=True)
+        # engine = create_engine(conn_str, echo=True, future=True)
+        engine = create_engine(conn_str, echo=False)
         Base.metadata.create_all(engine)
         return engine
     

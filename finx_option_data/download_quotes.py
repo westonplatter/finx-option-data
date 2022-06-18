@@ -1,9 +1,9 @@
-from datetime import timedelta
+from datetime import timedelta, date, datetime
 from optparse import Option
 import os
 import time
+from typing import List
 
-import pandas_market_calendars as mcal
 import pandas as pd
 import numpy as np
 from pytest import param
@@ -16,18 +16,17 @@ import sqlalchemy as sa
 from finx_option_data.models import StockQuote, OptionQuote
 from finx_option_data.configs import Config
 from finx_option_data.data_ops import df_upsert, df_insert_do_nothing
+from finx_option_data.utils import _market_days_between
 
 from finx_option_pricer.option import Option
 
 
 def gen_quotes_to_fetch(config: Config, ticker: str) -> None:
     with Session(config.engine_metrics) as session:
-        nyse = mcal.get_calendar("NYSE")
-        fetch_dates = nyse.schedule(start_date="2022-01-01", end_date="2022-6-1")
+        sd = pd.to_datetime("2022-01-01")
+        ed = date.today()
 
-        for _, row in fetch_dates.iterrows():
-            dt = row["market_close"]
-
+        for dt in _market_days_between(sd, ed):
             results = session.execute(
                 f"""
                     select count(id) 
@@ -81,12 +80,12 @@ def fetch_quotes_next(config: Config) -> None:
 
 def strike_put_call_combinations(strikes):
     option_types = ["put", "call"]
-    arr = np.array(np.meshgrid(strikes, option_types)).T.reshape(-1,2)
-    return [[int(x), y] for x,y in arr]
+    arr = np.array(np.meshgrid(strikes, option_types)).T.reshape(-1, 2)
+    return [[int(x), y] for x, y in arr]
 
 
 def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
-    # TODO(weston) - change this query to detech the absent of a options data at start/end date with
+    # TODO(weston) - change this query to detect the absent of a options data at start/end date with
     query = text(
         f"""select * from {StockQuote.__tablename__} where ticker = '{ticker}' order by dt asc limit 10"""
     )
@@ -127,9 +126,25 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
                 if data == []:
                     continue
                 ddf = pd.DataFrame(data)
-                ddf.rename(columns={"strike_price":"strike", "contract_type": "option_type", "expiration_date": "exp_date"}, inplace=True)
+                ddf.rename(
+                    columns={
+                        "strike_price": "strike",
+                        "contract_type": "option_type",
+                        "expiration_date": "exp_date",
+                    },
+                    inplace=True,
+                )
                 ddf.exp_date = pd.to_datetime(ddf.exp_date)
-                ddf.drop(columns=["cfi", "exercise_style", "primary_exchange", "shares_per_contract"], axis=1, inplace=True)
+                ddf.drop(
+                    columns=[
+                        "cfi",
+                        "exercise_style",
+                        "primary_exchange",
+                        "shares_per_contract",
+                    ],
+                    axis=1,
+                    inplace=True,
+                )
                 ddf["dt"] = row["dt"]
                 opdfs.append(ddf)
 
@@ -157,7 +172,7 @@ def gen_option_quotes_next(config: Config) -> None:
         for ix, row in df.iterrows():
             # gen url
             ticker = row["ticker"]
-            date = row["dt"].date().strftime('%Y-%m-%d')
+            date = row["dt"].date().strftime("%Y-%m-%d")
             url = f"https://api.polygon.io/v1/open-close/{ticker}/{date}?adjusted=true&apiKey={config.polygon_api_key}"
             # make request
             res = requests.get(url)
@@ -172,32 +187,52 @@ def gen_option_quotes_next(config: Config) -> None:
                 row["pre_market"] = data["preMarket"]
                 row["after_market"] = data["afterHours"]
                 row["fetched"] = True
-                
+
                 spot = None
                 key = (row["dt"], row["underlying_ticker"])
                 if key in prices:
                     spot = prices[key]
                 else:
-                    result = pd.read_sql(stock_price_query, con, params=dict(dt=row["dt"], underlying_ticker=row["underlying_ticker"]))
+                    result = pd.read_sql(
+                        stock_price_query,
+                        con,
+                        params=dict(
+                            dt=row["dt"], underlying_ticker=row["underlying_ticker"]
+                        ),
+                    )
                     spot = result.close.values[0]
                     prices[key] = spot
-                    
-                row['dte'] = (row['exp_date'] - row['dt'].date()).days
-                dte_frac = row['dte'] / 252
-                option = Option(S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=None)
-                row['iv'] = option.iv(row.close)
-                option = Option(S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=row['iv'])
-                # everything based on IV 
-                row['delta'] = option.delta
-                row['theta'] = option.theta
-                row['gamma'] = option.gamma
-                row['vega'] = option.vega
+
+                row["dte"] = (row["exp_date"] - row["dt"].date()).days
+                dte_frac = row["dte"] / 252
+                option = Option(
+                    S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=None
+                )
+                row["iv"] = option.iv(row.close)
+                option = Option(
+                    S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=row["iv"]
+                )
+                # everything based on IV
+                row["delta"] = option.delta
+                row["theta"] = option.theta
+                row["gamma"] = option.gamma
+                row["vega"] = option.vega
                 # replace row with updated values
                 df.loc[ix] = row
                 print(".", end="", flush=True)
 
-
     df_upsert(df, config.engine_metrics, OptionQuote)
+
+
+
+def gen_fm_calendars():
+    from finx_option_data.transforms import gen_friday_and_following_monday
+    from finx_option_data.models import StrategyTimespreads
+
+    query = sa.text("select * from option_quotes where underlying_ticker = :underlying_ticker and date(dt) = :dt")
+    df = pd.read_sql(query, config.engine_metrics, params={"dt": pd.to_datetime("2022-01-03"), "underlying_ticker": "SPY"})
+    ddf = gen_friday_and_following_monday(df)
+    df_insert_do_nothing(ddf, config.engine_metrics, StrategyTimespreads)
 
 
 
@@ -211,4 +246,6 @@ if __name__ == "__main__":
     # gen_quotes_to_fetch(config=config, ticker="SPY")
     # fetch_quotes_next(config=config)
     # gen_option_quotes_to_fetch(config=config, ticker="SPY")
-    gen_option_quotes_next(config=config)
+    # gen_option_quotes_next(config=config)
+
+    gen_fm_calendars()

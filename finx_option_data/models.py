@@ -57,6 +57,18 @@ class OptionQuote(Base):
     option_type = Column(String(10))
 
 
+class StrategyTimespreads(Base):
+    __tablename__ = 'strategy_timespreads'
+    id = Column(Integer, primary_key=True)
+    dt = Column(DateTime(timezone=True))
+    desc = Column(String(50))
+    id_f = Column(Integer)
+    id_b = Column(Integer)
+    ticker_f = Column(String(50))
+    ticker_b = Column(String(50))
+
+    # unique index on id_f, id_b
+
 # class Metric(Base):
 #     __tablename__ = 'metric_back_front_vol'
 #     id = Column(Integer, primary_key=True)
