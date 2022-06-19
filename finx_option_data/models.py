@@ -1,17 +1,12 @@
-from email.policy import default
 from xmlrpc.client import Boolean
 from sqlalchemy import Integer, String, Column, Date, DateTime, Numeric, Column, Boolean
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
-
 
 Base = declarative_base()
 
 DefaultNumericColumn = Numeric(
     precision=8, scale=2, decimal_return_scale=None, asdecimal=True
 )
-
 
 class StockQuote(Base):
     __tablename__ = "stock_quotes"
@@ -66,20 +61,3 @@ class StrategyTimespreads(Base):
     id_b = Column(Integer)
     ticker_f = Column(String(50))
     ticker_b = Column(String(50))
-
-    # unique index on id_f, id_b
-
-# class Metric(Base):
-#     __tablename__ = 'metric_back_front_vol'
-#     id = Column(Integer, primary_key=True)
-#     dt = Column(DateTime)
-#     key = Column(String)
-#     value = Numeric(precision=8, scale=4, decimal_return_scale=None, asdecimal=True)
-#     version = Column(Integer)
-
-# class ApiKey(Base):
-#     __tablename__ = "api_key"
-#     id = Column(Integer, primary_key=True)
-#     key = Column(String)
-#     value_json = Column(JSONB)
-#     value_json = Column(String)

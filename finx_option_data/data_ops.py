@@ -34,6 +34,7 @@ def create_upsert_method(meta, extra_update_fields: Optional[Dict[str, str]]):
 
     return method
 
+
 def create_insert_do_nothing_method(meta):
     def method(table, conn, keys, data_iter):
         # select table that data is being inserted to (from pandas's context)
@@ -52,7 +53,6 @@ def create_insert_do_nothing_method(meta):
     return method
 
 
-
 def df_upsert(df, engine, model):
     meta = sa.MetaData(engine)
     upsert_method = create_upsert_method(meta, extra_update_fields={})
@@ -65,6 +65,7 @@ def df_upsert(df, engine, model):
         chunksize=200,  # it's recommended to insert data in chunks
         method=upsert_method,
     )
+
 
 def df_insert_do_nothing(df, engine, model):
     meta = sa.MetaData(engine)

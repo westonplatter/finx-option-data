@@ -22,13 +22,11 @@ class Config(object):
 
     @property
     def metrics_postgres_connstr(self):
-        return self.configs.get("PG_CONNECTION_STR", None)
+        return self.configs.get("sqlalchemy.url", None)
 
     @property
     def engine_metrics(self):
-        conn_str = self.metrics_postgres_connstr
-        # engine = create_engine(conn_str, echo=True, future=True)
-        engine = create_engine(conn_str, echo=False)
+        engine = create_engine(self.metrics_postgres_connstr, echo=True)
         Base.metadata.create_all(engine)
         return engine
     

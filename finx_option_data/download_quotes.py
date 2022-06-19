@@ -8,17 +8,15 @@ import pandas as pd
 import numpy as np
 from pytest import param
 import requests
-from sqlalchemy.sql import select
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 import sqlalchemy as sa
+
+from finx_option_pricer.option import Option
 
 from finx_option_data.models import StockQuote, OptionQuote
 from finx_option_data.configs import Config
 from finx_option_data.data_ops import df_upsert, df_insert_do_nothing
 from finx_option_data.utils import _market_days_between
-
-from finx_option_pricer.option import Option
 
 
 def gen_quotes_to_fetch(config: Config, ticker: str) -> None:
@@ -43,7 +41,7 @@ def gen_quotes_to_fetch(config: Config, ticker: str) -> None:
 
 
 def fetch_quotes_next(config: Config) -> None:
-    query = text(
+    query = sa.text(
         f"""select * from {StockQuote.__tablename__} where fetched = false order by dt limit 300"""
     )
 
@@ -86,19 +84,25 @@ def strike_put_call_combinations(strikes):
 
 def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
     # TODO(weston) - change this query to detect the absent of a options data at start/end date with
-    query = text(
-        f"""select * from {StockQuote.__tablename__} where ticker = '{ticker}' order by dt asc limit 10"""
-    )
+    query = sa.text(
+        f"""
+        select *
+        from {StockQuote.__tablename__}
+        where ticker = :ticker and dt > :dt
+        order by dt asc
+        limit 1000
+        """)
 
     # configs
     MAX_DAYS_OUT = 70
-    strike_distance = 20
+    strike_distance = 100
 
     with config.engine_metrics.connect() as con:
-        df = pd.read_sql(query, con)
+        df = pd.read_sql(query, con, params={"ticker": ticker, "dt": pd.to_datetime("2022-05-14")})
 
     opdfs = []
-
+    
+    # each row is a day
     for _, row in df.iterrows():
         strikes = list(
             np.array([x for x in range(-strike_distance, strike_distance)])
@@ -109,6 +113,8 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
             row_date = row["dt"].date()
             expiration_date_max = row_date + timedelta(days=MAX_DAYS_OUT)
             underlying_ticker = row["ticker"]
+
+            time.sleep(0.01)
 
             url = f"https://api.polygon.io/v3/reference/options/contracts?"
             url += f"underlying_ticker={underlying_ticker}"
@@ -147,24 +153,25 @@ def gen_option_quotes_to_fetch(config: Config, ticker: str) -> None:
                 )
                 ddf["dt"] = row["dt"]
                 opdfs.append(ddf)
-
                 print(".", end="", flush=True)
+
+        print(f"{row_date}", flush=True)
 
         ins_df = pd.concat(opdfs)
         df_insert_do_nothing(ins_df, config.engine_metrics, OptionQuote)
 
 
 def gen_option_quotes_next(config: Config) -> None:
-    # query = text(
-    #     f"""select * from {OptionQuote.__tablename__} where (fetched = false or fetched is null) order by dt desc limit 1000"""
-    # )
-
-    query = text(
-        f"""select * from {OptionQuote.__tablename__} where (iv is null) order by dt desc limit 1000"""
+    query = sa.text(
+        f"""
+        select * from {OptionQuote.__tablename__} 
+        where (fetched = false or fetched is null) and dt > '2022-02-01' and dt < '2022-03-01'
+        order by dt desc limit 1
+        """
     )
 
     # TODO(weston) - let's look up all spot prices at the beginning and then fill pull from df
-    stock_price_query = text(
+    stock_price_query = sa.text(
         f"""select close from {StockQuote.__tablename__} where dt = :dt and ticker = :underlying_ticker"""
     )
 
@@ -174,6 +181,11 @@ def gen_option_quotes_next(config: Config) -> None:
         df = pd.read_sql(query, con)
 
         for ix, row in df.iterrows():
+            #
+            # TODO
+            raise NotImplementedError("handle when we get a 404 for a options contract")
+            #
+
             # gen url
             ticker = row["ticker"]
             date = row["dt"].date().strftime("%Y-%m-%d")
@@ -226,7 +238,7 @@ def gen_option_quotes_next(config: Config) -> None:
                 df.loc[ix] = row
                 print(".", end="", flush=True)
 
-    df_upsert(df, config.engine_metrics, OptionQuote)
+        df_upsert(df, config.engine_metrics, OptionQuote)
 
 
 
@@ -251,10 +263,15 @@ if __name__ == "__main__":
     # gen_quotes_to_fetch(config=config, ticker="SPY")
     # fetch_quotes_next(config=config)
     # gen_option_quotes_to_fetch(config=config, ticker="SPY")
-    # gen_option_quotes_next(config=config)
 
-    dt = pd.to_datetime("2022-01-03")
-    gen_fm_calendars(config, dt)
+    for i in range(0,10000):
+        print(f"{i} fetching next 50 option quotes")
+        gen_option_quotes_next(config=config)
+
+    sd = pd.to_datetime("2022-01-03")
+    ed = pd.to_datetime("2022-06-18")
+    for dt in _market_days_between(sd, ed):
+        gen_fm_calendars(config, dt)
 
     # select ts.id, ts.id_b, b.id, b.iv as biv, ts.id_f, f.id, f.iv as fiv, f.iv-b.iv as ivdiff, date(ts.dt) as dt, f.exp_date, b.exp_date, b.close-f.close as pricediff, f.delta, f.strike
     # from strategy_timespreads as ts
