@@ -5,38 +5,8 @@ AWS_REGION ?= us-east-1
 test:
 	pytest .
 
-changelog:
-	git-chglog -o CHANGELOG.md
-
-
 env.update:
 	pip install -r requirements/requirements.txt
-
-
-#------------------------------------------------------------------------------
-# Config Actions
-#------------------------------------------------------------------------------
-
-config.tda:
-	python cli.py gen-tda-creds
-
-config.db:
-	python cli.py drop-migrate-db
-
-
-#------------------------------------------------------------------------------
-# Actions - local
-#------------------------------------------------------------------------------
-
-fetch:
-	python cli.py do-fetch-data
-
-move:
-	python cli.py do-move-data-to-s3
-
-post_process_yesterday:
-	python cli.py do
-
 
 
 #------------------------------------------------------------------------------

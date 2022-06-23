@@ -1,4 +1,6 @@
 # finx-option-data
+Finx Focus = ingest, enrich
+
 Fetch, store, and warehouse Option Data
 
 ```

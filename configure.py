@@ -1,5 +1,4 @@
 from dotenv import dotenv_values
-from tda.auth import client_from_manual_flow
 
 
 def write_example_env_file():
@@ -17,20 +16,3 @@ def write_example_env_file():
         for env_var_key in env_var_keys:
             env_var_line = f"{env_var_key}=value\n"
             fout.write(env_var_line)
-
-
-def authenticate_with_tda():
-    configs = dotenv_values(".env")
-    TDA_CLIENT_ID = configs["TDA_CLIENT_ID"]
-    TDA_REDIRECT_URL = configs["TDA_REDIRECT_URL"]
-    token_path = "tda_api_creds.json"
-    client_from_manual_flow(TDA_CLIENT_ID, TDA_REDIRECT_URL, token_path)
-
-
-def drop_and_migrate():
-    from handler import Base, OptionData
-    from handler import create_engine
-
-    engine = create_engine()
-    OptionData.__table__.drop(engine)
-    Base.metadata.create_all(engine)

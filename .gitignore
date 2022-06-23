@@ -35,4 +35,6 @@ data
 ## custom - data
 *.ipynb
 .ipynb_checkpoints/
+notebooks/
 
+*test_script*
