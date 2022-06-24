@@ -1,13 +1,10 @@
 from datetime import timedelta, date, datetime
 from optparse import Option
 import os
-from re import L
 import time
-from typing import List
 
 import pandas as pd
 import numpy as np
-from pytest import param
 import requests
 from sqlalchemy.orm import Session
 import sqlalchemy as sa

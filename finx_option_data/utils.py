@@ -38,3 +38,9 @@ def _market_days_between(
 ) -> List:
     df = _market_schedule_between(start_dt, end_dt, calendar=calendar)
     return df["market_close"].to_list()
+
+def _market_closes_between(
+    start_dt: datetime, end_dt: datetime, calendar: str = "NYSE"
+) -> List:
+    df = _market_schedule_between(start_dt, end_dt, calendar=calendar)
+    return df["market_close"].to_list()
