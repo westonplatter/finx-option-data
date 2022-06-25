@@ -15,8 +15,8 @@ class StockQuoteFetchAgent(object):
     """Client focused on intelligently fetching stock quote data
     """
 
-    def __init__(self, config: Config, engine: sa.engine, throttle_api_requests=True):
-        self.polygon_api_key = config.polygon_api_key
+    def __init__(self, polygon_api_key: str, engine: sa.engine, throttle_api_requests=True):
+        self.polygon_api_key = polygon_api_key
         self.engine = engine
         self.throttle_api_requests = throttle_api_requests
 
@@ -28,8 +28,6 @@ class StockQuoteFetchAgent(object):
         df['high'] = None
         df['low'] = None
         df['fetched'] = None
-
-        import pdb; pdb.set_trace()
 
         for ix, row in df.iterrows():
             if self.throttle_api_requests:

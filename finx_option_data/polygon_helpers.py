@@ -7,6 +7,30 @@ import requests
 DATE_FORMAT = '%Y-%m-%d'
 
 
+def reference_options_contract_by_ticker_asof(api_key: str, ticker: str, as_of: date) -> Union[None, List[Dict]]:
+    """Fetch contract by ticker & as_of date
+
+    Args:
+        api_key (str): _description_
+        ticker (str): _description_
+        as_of (date): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    url = "https://api.polygon.io/v3/reference/options/contracts"
+    url += f"/{ticker}"
+    url += f"?apiKey={api_key}"
+    url += f"&as_of={as_of.strftime(DATE_FORMAT)}"
+    res = requests.get(url)
+
+    if res.status_code == 200:
+        return res.json()['results']
+    
+    if res.status_code == 404:
+        return None
+
+
 def reference_options_contracts(
     api_key: str, underlying_ticker: str, option_type: str, strike: float, as_of: date, exp_date_lte: date, limit: int = None
 ) -> Union[None, List[Dict]]:
@@ -43,6 +67,7 @@ def reference_options_contracts(
     if res.status_code == 404:
         return None
     
+
 def open_close(api_key, ticker: str, date: date) -> Union[None, List[Dict]]:
     """Get Open/Close data.
 
