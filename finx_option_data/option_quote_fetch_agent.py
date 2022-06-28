@@ -15,6 +15,7 @@ from finx_option_data.polygon_helpers import (
     open_close,
     reference_options_contract_by_ticker_asof,
 )
+from finx_option_data.polygon_helpers import reference_options_contracts
 from finx_option_data.data_ops import df_insert_do_nothing, df_upsert
 
 tzet = timezone("US/Eastern")
@@ -40,9 +41,7 @@ class OptionQuoteFetchAgent(object):
         pass
 
     def fetch_options_contracts(self, dt, underlying_ticker, option_type, strike):
-        from finx_option_data.polygon_helpers import reference_options_contracts
-
-        contracts = reference_options_contracts(
+        return reference_options_contracts(
             api_key=self.polygon_api_key,
             underlying_ticker=underlying_ticker,
             option_type=option_type,
@@ -50,7 +49,6 @@ class OptionQuoteFetchAgent(object):
             as_of=dt.date(),
             exp_date_lte=(dt.date() + timedelta(days=30)),
         )
-        return contracts
 
     def ingest_prices_to_exp(self, ticker, dt: pd.Timestamp) -> None:
         contract_details = reference_options_contract_by_ticker_asof(

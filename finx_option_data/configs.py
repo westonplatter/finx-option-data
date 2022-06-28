@@ -4,6 +4,8 @@ from dotenv import dotenv_values
 from sqlalchemy import create_engine
 from finx_option_data.models import Base
 
+verbose = int(os.getenv("VERBOSE", 0)) == 1
+
 
 
 class Config(object):
@@ -26,7 +28,7 @@ class Config(object):
 
     @property
     def engine_metrics(self):
-        engine = create_engine(self.metrics_postgres_connstr, echo=True)
+        engine = create_engine(self.metrics_postgres_connstr, echo=verbose)
         Base.metadata.create_all(engine)
         return engine
     

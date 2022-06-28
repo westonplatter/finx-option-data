@@ -32,9 +32,12 @@ class StockQuoteFetchAgent(object):
         for ix, row in df.iterrows():
             if self.throttle_api_requests:
                 print(".", end="", flush=True)
-                time.sleep(6.0)
-            data = open_close(self.polygon_api_key, ticker, row['dt'].date())
+                time.sleep(12.0)
+            date = row['dt'].date()
+            # print(date)
+            data = open_close(self.polygon_api_key, ticker, date)
             if data is None:
+                df.drop([ix]) # drop row if data is None
                 continue
             row["open"] = data["open"]
             row["close"] = data["close"]
@@ -46,7 +49,7 @@ class StockQuoteFetchAgent(object):
         df_insert_do_nothing(df, self.engine, StockQuote)
 
     def query_prices(self, ticker, sd, ed) -> pd.DataFrame:
-        query = sa.text("select * from stock_quotes where :sd <= dt and dt <= :ed and ticker = :ticker")
+        query = sa.text("select * from stock_quotes where :sd <= dt and dt <= :ed and ticker = :ticker and fetched = true")
         modified_sd = sd.replace(hour=0)
         modified_ed = ed.replace(hour=23)
         query_params = dict(table=StockQuote.__tablename__, sd=modified_sd, ed=modified_ed, ticker=ticker)
