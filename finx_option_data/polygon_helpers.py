@@ -4,10 +4,12 @@ from typing import Dict, List, Union
 import pandas as pd
 import requests
 
-DATE_FORMAT = '%Y-%m-%d'
+DATE_FORMAT = "%Y-%m-%d"
 
 
-def reference_options_contract_by_ticker_asof(api_key: str, ticker: str, as_of: date) -> Union[None, List[Dict]]:
+def reference_options_contract_by_ticker_asof(
+    api_key: str, ticker: str, as_of: date
+) -> Union[None, List[Dict]]:
     """Fetch contract by ticker & as_of date
 
     Args:
@@ -25,14 +27,20 @@ def reference_options_contract_by_ticker_asof(api_key: str, ticker: str, as_of: 
     res = requests.get(url)
 
     if res.status_code == 200:
-        return res.json()['results']
-    
+        return res.json()["results"]
+
     if res.status_code == 404:
         return None
 
 
 def reference_options_contracts(
-    api_key: str, underlying_ticker: str, option_type: str, strike: float, as_of: date, exp_date_lte: date, limit: int = None
+    api_key: str,
+    underlying_ticker: str,
+    option_type: str,
+    strike: float,
+    as_of: date,
+    exp_date_lte: date,
+    limit: int = None,
 ) -> Union[None, List[Dict]]:
     """Get listed option contracts between `as_of` date and `exp_date_lte`.
 
@@ -42,9 +50,9 @@ def reference_options_contracts(
         option_type (str): _description_
         strike (float): _description_
         as_of (date): _description_
-        exp_date_lte (date): _description_    
+        exp_date_lte (date): _description_
 
-        limit (int). _description_. Default is None  
+        limit (int). _description_. Default is None
 
     Returns:
         _type_: _description_
@@ -62,22 +70,22 @@ def reference_options_contracts(
     res = requests.get(url)
 
     if res.status_code == 200:
-        return res.json()['results']
-    
+        return res.json()["results"]
+
     if res.status_code == 404:
         return None
-    
 
-def open_close(api_key, ticker: str, date: date) -> Union[None, List[Dict]]:
+
+def open_close(api_key, ticker: str, date: date) -> Union[None, Dict]:
     """Get Open/Close data.
 
     Args:
-        api_key (str): _description_
-        ticker (str): _description_
-        date (date): _description_
+        api_key (str): api key
+        ticker (str): ticker (stock or option)
+        date (date): date
 
     Returns:
-        Union[None, List[Dict]]: _description_
+        Union[None, Dict]: None or dict with key/values
     """
     date = date.strftime("%Y-%m-%d")
     url = f"https://api.polygon.io/v1/open-close/{ticker}/{date}?adjusted=true&apiKey={api_key}"
@@ -85,9 +93,16 @@ def open_close(api_key, ticker: str, date: date) -> Union[None, List[Dict]]:
 
     if res.status_code == 200:
         return res.json()
-    
+
     if res.status_code == 404:
-        return None
+        data = res.json()
+        # ie, if there is no data for that day.
+        # this happens for option contracts with no trades
+        if data["status"] == "NOT_FOUND":
+            return None
+        # this can happen if rate throttled
+        else:
+            res.raise_for_status()
 
 
 def aggs(api_key, ticker: str, multiplier: int, time_span: str, sd: date, ed: date):
@@ -98,13 +113,10 @@ def aggs(api_key, ticker: str, multiplier: int, time_span: str, sd: date, ed: da
     res = requests.get(url)
 
     if res.status_code == 200:
-        df = pd.DataFrame(res.json()['results'])
+        df = pd.DataFrame(res.json()["results"])
         df.rename(columns={"c": "close", "dt": "t"}, inplace=True)
-        df['dt'] = pd.to_datetime(df['dt'])
+        df["dt"] = pd.to_datetime(df["dt"])
         return df
 
-    
     if res.status_code == 404:
         return None
-
-    

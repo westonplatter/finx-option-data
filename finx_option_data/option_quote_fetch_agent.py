@@ -1,6 +1,7 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Union
 
 from datetime import timedelta
+import numpy as np
 import pandas as pd
 import sqlalchemy as sa
 from pytz import timezone
@@ -24,9 +25,15 @@ tzet = timezone("US/Eastern")
 class OptionQuoteFetchAgent(object):
     """Client focused on intelligently fetching option quote data"""
 
-    def __init__(self, polygon_api_key: str, engine: sa.engine):
+    def __init__(
+        self,
+        polygon_api_key: str,
+        engine: sa.engine,
+        throttle_api_requests: bool = False,
+    ):
         self.polygon_api_key = polygon_api_key
         self.engine = engine
+        self.throttle_api_requests = throttle_api_requests
 
     def fetch_contracts_by_params_delta_range_and_dte(
         self,
@@ -40,20 +47,30 @@ class OptionQuoteFetchAgent(object):
         # todo fetch contract for ATM call and ATM put
         pass
 
-    def fetch_options_contracts(self, dt, underlying_ticker, option_type, strike):
+    def fetch_options_contracts(
+        self,
+        dt: pd.Timestamp,
+        underlying_ticker: str,
+        option_type: str,
+        strike: float,
+        dte: int,
+    ) -> Union[None, List[Dict]]:
+        """Fetch option contracts. Return list of dictionaries from polygon's API"""
         return reference_options_contracts(
             api_key=self.polygon_api_key,
             underlying_ticker=underlying_ticker,
             option_type=option_type,
             strike=strike,
             as_of=dt.date(),
-            exp_date_lte=(dt.date() + timedelta(days=30)),
+            exp_date_lte=(dt.date() + timedelta(days=dte)),
         )
 
     def ingest_prices_to_exp(self, ticker, dt: pd.Timestamp) -> None:
+        """Fetch and save option prices to DB"""
         contract_details = reference_options_contract_by_ticker_asof(
             self.polygon_api_key, ticker, dt
         )
+        
         market_closes = _market_closes_between(
             dt, pd.to_datetime(contract_details["expiration_date"])
         )
@@ -66,6 +83,7 @@ class OptionQuoteFetchAgent(object):
         df["underlying_ticker"] = contract_details["underlying_ticker"]
         df["exp_date"] = ed
         df["strike"] = contract_details["strike_price"]
+        df['option_type'] = contract_details['contract_type']
 
         cols = [
             "open",
@@ -76,6 +94,11 @@ class OptionQuoteFetchAgent(object):
             "pre_market",
             "after_market",
             "fetched",
+            "iv",
+            "delta",
+            "theta",
+            "vega",
+            "gamma",
         ]
         for col in cols:
             df[col] = None
@@ -85,6 +108,7 @@ class OptionQuoteFetchAgent(object):
             engine=self.engine,
             throttle_api_requests=True,
         )
+
         stock_prices_df = sagent.query_prices(
             ticker=contract_details["underlying_ticker"], sd=dt, ed=ed
         )
@@ -128,9 +152,13 @@ class OptionQuoteFetchAgent(object):
                 row["theta"] = option.theta
                 row["gamma"] = option.gamma
                 row["vega"] = option.vega
+
             # replace row with updated values
             df.loc[ix] = row
             print(".", end="", flush=True)
+
+        # quality issue - replace inf with np.nan
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
         df_upsert(df, self.engine, OptionQuote)
 
