@@ -1,6 +1,6 @@
-from datetime import timedelta, date
-from re import I
+from datetime import timedelta
 import pandas as pd
+import warnings
 
 from finx_option_data.configs import Config
 config = Config(".env.prod")
@@ -21,6 +21,10 @@ def round_to_5(x, base=5):
     return base * round(x/base)
 
 
+#ignore by the divid by zero messages
+warnings.filterwarnings("ignore", message="divide by zero encountered in double_scalars")    
+
+
 for ix, row in prices.iterrows():
     close = row['close']
     rounded_close = round_to_5(row['close'])
@@ -28,7 +32,13 @@ for ix, row in prices.iterrows():
 
     print(f"close={close}. rounded_close={rounded_close}. relative_sd={relative_sd}")
 
-    for strike in [x for x in range(rounded_close-30,rounded_close+35, 5)]:
+    price_diff = 5
+    price_increment = 5
+
+    range_min = rounded_close - price_diff
+    range_max = rounded_close + price_diff + price_increment
+
+    for strike in [x for x in range(range_min, range_max, price_increment)]:
         print(f"strike={strike}", flush=True)
         for option_type in ["call", "put"]:
             contracts = oagent.fetch_options_contracts(relative_sd, "SPY", option_type, strike, dte=60)
