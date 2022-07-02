@@ -70,20 +70,24 @@ class OptionQuoteFetchAgent(object):
         contract_details = reference_options_contract_by_ticker_asof(
             self.polygon_api_key, ticker, dt
         )
-        
-        market_closes = _market_closes_between(
-            dt, pd.to_datetime(contract_details["expiration_date"])
-        )
 
+        exp_date = pd.to_datetime(contract_details["expiration_date"])
+
+        # only collect option quotes for contracts that expire on Friday
+        if exp_date.date().weekday() != 4:
+            return
+
+        market_closes = _market_closes_between(dt, exp_date)
         sd, ed = market_closes[0], market_closes[-1]
-
-        df = self.calc_missing_quotes(ticker, sd, ed)
+        ed_missing_quotes = ed - timedelta(days=1)
+        df = self.calc_missing_quotes(ticker, sd, ed_missing_quotes)
 
         df["ticker"] = ticker
         df["underlying_ticker"] = contract_details["underlying_ticker"]
-        df["exp_date"] = ed
+        # use the last market close as the expiration date b/c it has the time
+        df["exp_date"] = ed  
         df["strike"] = contract_details["strike_price"]
-        df['option_type'] = contract_details['contract_type']
+        df["option_type"] = contract_details["contract_type"]
 
         cols = [
             "open",
@@ -99,6 +103,8 @@ class OptionQuoteFetchAgent(object):
             "theta",
             "vega",
             "gamma",
+            "weekday",
+            "dte",
         ]
         for col in cols:
             df[col] = None
@@ -110,13 +116,13 @@ class OptionQuoteFetchAgent(object):
         )
 
         stock_prices_df = sagent.query_prices(
-            ticker=contract_details["underlying_ticker"], sd=dt, ed=ed
+            ticker=contract_details["underlying_ticker"], sd=dt, ed=ed_missing_quotes
         )
 
         for ix, row in df.iterrows():
-            date = row["dt"].date()
+            dt_date = row["dt"].date()
 
-            data = open_close(self.polygon_api_key, ticker, date)
+            data = open_close(self.polygon_api_key, ticker, dt_date)
             if data is None:
                 row["fetched"] = True
             else:
@@ -129,8 +135,11 @@ class OptionQuoteFetchAgent(object):
                 row["pre_market"] = data["preMarket"]
                 row["after_market"] = data["afterHours"]
                 row["fetched"] = True
+                # derived data
+                row["dte"] = (row["exp_date"] - row["dt"]).days
+                row["exp_date_weekday"] = row["exp_date"].date().weekday()
 
-                # calc iv
+                # derived iv and greek data
                 try:
                     spot = stock_prices_df[
                         stock_prices_df.dt == row["dt"]
@@ -138,28 +147,28 @@ class OptionQuoteFetchAgent(object):
                 except Exception as e:
                     raise (e)
 
-                row["dte"] = (row["exp_date"] - row["dt"]).days
                 dte_frac = row["dte"] / 252
                 option = Option(
                     S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=None
                 )
-                row["iv"] = option.iv(row.close)
+                row["iv"] = option.iv(opt_value=row.close)
                 option = Option(
                     S=spot, K=row["strike"], T=dte_frac, r=0.0025, sigma=row["iv"]
                 )
-                # everything based on IV
+                # implied greek values
                 row["delta"] = option.delta
                 row["theta"] = option.theta
                 row["gamma"] = option.gamma
                 row["vega"] = option.vega
 
-            # replace row with updated values
-            df.loc[ix] = row
-            print(".", end="", flush=True)
+                # replace row with updated values
+                df.loc[ix] = row
+                # print(".", end="", flush=True)
 
         # quality issue - replace inf with np.nan
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
+        # upsert to db
         df_upsert(df, self.engine, OptionQuote)
 
     def calc_missing_quotes(self, ticker, sd, ed):
@@ -186,8 +195,4 @@ class OptionQuoteFetchAgent(object):
             return pd.read_sql(query, con=con, params=query_params)
 
     def fetch_quote(self, ticker, dte):
-        pass
-
-    @classmethod
-    def calc_iv_and_greeks(cls, stuff: Dict):
         pass

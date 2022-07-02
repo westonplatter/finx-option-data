@@ -41,6 +41,7 @@ class OptionQuote(Base):
     fetched = Column(Boolean, default=False)
     # finx derived data - option specific
     exp_date = Column(Date)
+    exp_date_weekday = Column(Integer, nullable=True)
     dte = Column(Integer)
     strike = DefaultNumericColumn
     underlying_ticker = Column(String(50))
