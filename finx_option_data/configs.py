@@ -4,6 +4,8 @@ from dotenv import dotenv_values
 from sqlalchemy import create_engine
 from finx_option_data.models import Base
 
+verbose = int(os.getenv("VERBOSE", 0)) == 1
+
 
 
 class Config(object):
@@ -22,11 +24,14 @@ class Config(object):
 
     @property
     def metrics_postgres_connstr(self):
-        return self.configs.get("PG_CONNECTION_STR", None)
+        return self.configs.get("sqlalchemy.url", None)
 
     @property
     def engine_metrics(self):
-        conn_str = self.metrics_postgres_connstr
-        engine = create_engine(conn_str, echo=True, future=True)
+        engine = create_engine(self.metrics_postgres_connstr, echo=verbose)
         Base.metadata.create_all(engine)
         return engine
+    
+    @property
+    def polygon_api_key(self):
+        return self.configs.get("POLYGON_API_KEY", None)

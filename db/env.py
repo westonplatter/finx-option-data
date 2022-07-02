@@ -1,5 +1,7 @@
 from logging.config import fileConfig
+import os
 
+from dotenv import dotenv_values
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
@@ -25,6 +27,12 @@ target_metadata = None
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+def get_finx_option_config_object() -> dict:
+    env_name = os.environ.get("ENV", "prod")
+    env_file = os.path.join(os.path.dirname(__file__), f"../.env.{env_name}")
+    config = dotenv_values(env_file)
+    return dict(config)
+
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
@@ -38,7 +46,10 @@ def run_migrations_offline():
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    # url = config.get_main_option("sqlalchemy.url")
+    finx_config = get_finx_option_config_object()
+    url = finx_config.get("sqlalchemy.url", None)
+
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -55,10 +66,10 @@ def run_migrations_online():
 
     In this scenario we need to create an Engine
     and associate a connection with the context.
-
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
+    finx_config = get_finx_option_config_object()
+
+    connectable = engine_from_config(finx_config,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

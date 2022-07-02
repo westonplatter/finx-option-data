@@ -1,5 +1,12 @@
 # finx-option-data
+Finx Focus = ingest, enrich
+
 Fetch, store, and warehouse Option Data
+
+```
+cd ../finx-option-pricer && pip install -e . && cd finx-option-data
+pip install -e .
+```
 
 ## Quick start
 
