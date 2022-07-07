@@ -1,8 +1,0 @@
-{
-    "name": "finx-option-data",
-    "description": "",
-    "version": "0.1.0",
-    "devDependencies": {
-        "serverless-python-requirements": "*"
-    }
-}
