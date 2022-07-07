@@ -62,3 +62,5 @@ class StrategyTimespreads(Base):
     id_b = Column(Integer)
     ticker_f = Column(String(50))
     ticker_b = Column(String(50))
+
+    

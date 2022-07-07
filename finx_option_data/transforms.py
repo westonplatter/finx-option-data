@@ -98,6 +98,32 @@ def find_matching_row(
         return xdf.loc[matches.index[0]]
 
 
+def generic_timespread_generator(input_df: pd.DataFrame, dte_diff: int, back_weekday: int):
+    """Generate df with pointers (id and polygon option tickers) for front and back options
+
+    Input:
+        input_df(pd.DataFrame): df
+
+    Returns:
+        df(pd.DataFrame): with columns = ["ticker_f", "ticker_b", "id_f", "id_b", "desc"]
+    """
+    description = f"{dte_diff}_calendar"
+
+    df = input_df.copy()
+    df['front_option_id'] = None
+    for _, grouped in df.groupby(["strike", "option_type"]):
+        for idx, row in grouped.iterrows():
+            # iterate through all the back (ie, not front) options
+            last_ew_row = find_matching_row(df, row, dte_diff=dte_diff)
+            if last_ew_row is not None:
+                # if we can find a matching front option, record id (primary key for db table)
+                df.loc[idx, "front_option_id"] = last_ew_row.id
+    comp = pd.merge(df, df, left_on="id", right_on="front_option_id", suffixes=("_f", "_b"))
+    comp["desc"] = description
+    comp.rename(columns={"dt_f": "dt"}, inplace=True)
+    return comp[["dt", "ticker_f", "ticker_b", "id_f", "id_b", "desc"]]
+
+
 def gen_friday_and_following_monday(input_df):
     """
     Generate df with pointers (id and polygon option tickers) for front and back options
@@ -109,25 +135,20 @@ def gen_friday_and_following_monday(input_df):
         df(pd.DataFrame): with columns = ["ticker_f", "ticker_b", "id_f", "id_b", "desc"]
     """
     dte_diff = 3
-    description = f"fm{abs(3)}dte_calendar"
     back_weekday = 0
+    return generic_timespread_generator(input_df, dte_diff, back_weekday)
 
-    assert len(list(set(input_df['dt'].values))) == 1, "there is more than 1 dt value"
 
-    df = input_df.copy()
-    df['front_option_id'] = None
-    
-    for _, grouped in df.groupby(["strike", "option_type"]):
-        for idx, row in grouped.iterrows():
-            # iterate through all the back (ie, not front) options
-            if row['exp_date'].weekday() == back_weekday:
-                # find the match front option
-                last_ew_row = find_matching_row(df, row, dte_diff=dte_diff)
-                if last_ew_row is not None:
-                    # if we can find a matching front option, record id (primary key for db table)
-                    df.loc[idx, "front_option_id"] = last_ew_row.id
-        
-    comp = pd.merge(df, df, left_on="id", right_on="front_option_id", suffixes=("_f", "_b"))
-    comp["desc"] = description
-    comp.rename(columns={"dt_f": "dt"}, inplace=True)
-    return comp[["dt", "ticker_f", "ticker_b", "id_f", "id_b", "desc"]]
+def gen_friday_and_following_friday(input_df):
+    """
+    Generate a df with Friday data as Front following Friday (t+7 market days) as Back
+
+    Input:
+        input_df(pd.DataFrame): df
+
+    Returns:
+        df(pd.DataFrame): with finx_desc=ff7dte_calendar
+    """
+    dte_diff = 7
+    back_weekday = 0
+    return generic_timespread_generator(input_df, dte_diff, back_weekday)
