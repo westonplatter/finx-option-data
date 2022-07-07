@@ -4,11 +4,9 @@ from datetime import timedelta
 import numpy as np
 import pandas as pd
 import sqlalchemy as sa
-from pytz import timezone
 
 from finx_option_pricer.option import Option
 
-from finx_option_data.configs import Config
 from finx_option_data.models import OptionQuote
 from finx_option_data.stock_quote_fetch_agent import StockQuoteFetchAgent
 from finx_option_data.utils import _market_schedule_between, _market_closes_between
@@ -18,8 +16,6 @@ from finx_option_data.polygon_helpers import (
 )
 from finx_option_data.polygon_helpers import reference_options_contracts
 from finx_option_data.data_ops import df_insert_do_nothing, df_upsert
-
-tzet = timezone("US/Eastern")
 
 
 class OptionQuoteFetchAgent(object):
@@ -65,17 +61,21 @@ class OptionQuoteFetchAgent(object):
             exp_date_lte=(dt.date() + timedelta(days=dte)),
         )
 
-    def ingest_prices_to_exp(self, ticker, dt: pd.Timestamp) -> None:
-        """Fetch and save option prices to DB"""
+    def ingest_prices_to_exp(self, ticker: str, dt: pd.Timestamp) -> None:
+        """Fetch and save option prices to DB
+
+        Args:
+            ticker (str): ticker of underlying
+            dt (pd.Timestamp): date to fetch prices for
+
+        Returns:
+            None
+        """
         contract_details = reference_options_contract_by_ticker_asof(
             self.polygon_api_key, ticker, dt
         )
 
         exp_date = pd.to_datetime(contract_details["expiration_date"])
-
-        # only collect option quotes for contracts that expire on Friday
-        if exp_date.date().weekday() != 4:
-            return
 
         market_closes = _market_closes_between(dt, exp_date)
         sd, ed = market_closes[0], market_closes[-1]
@@ -85,29 +85,9 @@ class OptionQuoteFetchAgent(object):
         df["ticker"] = ticker
         df["underlying_ticker"] = contract_details["underlying_ticker"]
         # use the last market close as the expiration date b/c it has the time
-        df["exp_date"] = ed  
+        df["exp_date"] = ed
         df["strike"] = contract_details["strike_price"]
         df["option_type"] = contract_details["contract_type"]
-
-        cols = [
-            "open",
-            "close",
-            "high",
-            "low",
-            "volume",
-            "pre_market",
-            "after_market",
-            "fetched",
-            "iv",
-            "delta",
-            "theta",
-            "vega",
-            "gamma",
-            "weekday",
-            "dte",
-        ]
-        for col in cols:
-            df[col] = None
 
         sagent = StockQuoteFetchAgent(
             polygon_api_key=self.polygon_api_key,
@@ -163,36 +143,56 @@ class OptionQuoteFetchAgent(object):
 
                 # replace row with updated values
                 df.loc[ix] = row
-                # print(".", end="", flush=True)
+                print(".", end="", flush=True)
 
         # quality issue - replace inf with np.nan
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
         # upsert to db
-        df_upsert(df, self.engine, OptionQuote)
+        df_without_id = df[np.isnan(df.id)].drop(columns=["id"])
+        if len(df_without_id.index) > 0:
+            df_insert_do_nothing(
+                df=df_without_id, engine=self.engine, model=OptionQuote
+            )
 
-    def calc_missing_quotes(self, ticker, sd, ed):
+        df_with_id = df[~np.isnan(df.id)]
+        if len(df_with_id.index) > 0:
+            df_upsert(df=df_with_id, engine=self.engine, model=OptionQuote)
+
+    def calc_missing_quotes(
+        self, ticker: str, sd: pd.Timestamp, ed: pd.Timestamp
+    ) -> pd.DataFrame:
+        """Calculate missing quotes for a given ticker and start_date/end_date range.
+
+        Returns:
+            pd.DataFrame: df of missing quotes with columns: all
+        """
         quotes = self.query_quotes_between(ticker, sd, ed)
         schedule = _market_schedule_between(sd, ed)
-        missing_dates = schedule[~schedule.market_close.isin(quotes.dt)]
-        df = (
-            missing_dates.reset_index()
-            .drop("index", axis=1)
-            .drop("market_open", axis=1)
-            .rename(columns={"market_close": "dt"})
-        )
-        return df
+        schedule.rename(columns={"market_close": "dt"}, inplace=True)
+        schedule.drop(columns=["market_open"], inplace=True)
+        return pd.merge(quotes, schedule, how="right", left_on="dt", right_on="dt")
 
-    def query_quotes_between(self, ticker, sd, ed):
-        """Query quotes between [sd, ed] where fetched is not null"""
+    def query_quotes_between(
+        self, ticker: str, sd: pd.Timestamp, ed: pd.Timestamp
+    ) -> pd.DataFrame:
+        """Query quotes between [sd, ed] where fetched is not null
+
+        Returns:
+            pd.DataFrame: df of quotes with columns: all
+        """
         query = sa.text(
-            "select * from option_quotes where (:sd <= dt and dt <= :ed) and ticker = :ticker and fetched is not null"
+            """
+            select * 
+            from option_quotes 
+            where 
+                (:sd <= dt and dt <= :ed) 
+                and ticker = :ticker 
+                and (fetched is null or fetched = false)
+        """
         )
         modified_sd = sd.replace(hour=0)
         modified_ed = ed.replace(hour=23)
         query_params = dict(sd=modified_sd, ed=modified_ed, ticker=ticker)
         with self.engine.connect() as con:
             return pd.read_sql(query, con=con, params=query_params)
-
-    def fetch_quote(self, ticker, dte):
-        pass

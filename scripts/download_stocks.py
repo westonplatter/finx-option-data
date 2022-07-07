@@ -12,7 +12,7 @@ sagent = StockQuoteFetchAgent(
 
 from finx_option_data.utils import chunks
 
-for dates in chunks(pd.date_range(start="2022-1-3", end="2022-3-1", freq="D"), 20):
+for dates in chunks(pd.date_range(start="2022-6-3", end="2022-7-1", freq="D"), 20):
     for ticker in ["SPY"]:
         # for ticker in ["SPY", "USO", "QQQ", "IWM"]:
         sd, ed = dates[0], dates[-1]
