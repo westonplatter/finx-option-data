@@ -1,33 +1,49 @@
-select 
-	
-	ts.ticker_f
-	, f.ticker
-	, f.close as close_f
-	, b.close as close_b
-	, -f.close+b.close as close_diff
-	, f.iv as iv_f
-	, b.iv as iv_b
-	, -f.iv+b.iv as iv_diff
-	, f.exp_date as exp_date_f
-	, b.exp_date as exp_date_b
-	, b.dt as dt_b
-	
-from strategy_timespreads as ts
-join option_quotes as f on ts.ticker_f = f.ticker and f.option_type = 'call' and f.strike = 460 and f.close is not null
-join option_quotes as b on ts.ticker_b = b.ticker and b.option_type = 'call' and b.strike = 460 and b.close is not null
-where
-	ts.desc = 'fm3dte_calendar'
-	and ts.dt = '2022-01-21 21:00:00+00'
-	and f.dt = b.dt
-	
-order by b.dt
+with fm as (
+	select 
+		ts.dt
+		, ts.desc
+		, f.close as close_f
+		, b.close as close_b
+		, -f.close+b.close as closs_diff
+		, f.iv as iv_f
+		, b.iv as iv_b
+		, -f.iv+b.iv as iv_diff
+		, f.dte
+		, f.strike
+		, f.option_type
+		, f.exp_date as exp_date_f
+		, b.exp_date as exp_date_b
+		
+	from strategy_timespreads as ts
+	join option_quotes as f on f.id = ts.id_f
+	join option_quotes as b on b.id = ts.id_b
+)
 
--- TODO - refill the table. There are errors for the fm3dte_calendar entries. 
+select * 
+from fm
+where
+	fm.strike in (440, 445)
+	and fm.option_type = 'call'
+	and fm.exp_date_f = '2022-02-11'
+order by strike, dt, dte
+;
+
+
+select exp_date, strike 
+from option_quotes as o 
+where 
+	o.exp_date_weekday = 4
+	and dte > 30
+group by o.exp_date, o.strike
+order by o.exp_date
+;
+
 /**
 
-1-24/1-31 are wrong
-1-28/2-04 are wrong
-1-28/1-31 are right
+user query 2 to find exp_date / strike combos
+loop over those
+and run query 1
+to generate 3d_cal spread vintages
+run regression on them
 
 **/
-
