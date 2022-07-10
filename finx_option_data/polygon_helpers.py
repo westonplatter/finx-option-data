@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Dict, List, Union
 
 import pandas as pd
@@ -105,18 +105,75 @@ def open_close(api_key, ticker: str, date: date) -> Union[None, Dict]:
             res.raise_for_status()
 
 
-def aggs(api_key, ticker: str, multiplier: int, time_span: str, sd: date, ed: date):
+def aggs(
+    api_key,
+    ticker: str,
+    multiplier: int,
+    time_span: str,
+    sd: datetime,
+    ed: datetime,
+    limit: int = 5000,
+) -> pd.DataFrame:
+    """Fetch aggregated data.
+
+    Args:
+        api_key (str): _description_
+        ticker (str): _description_
+        multiplier (int): _description_
+        time_span (str): _description_
+        sd (datetime): datetime instance, utc
+        ed (datetime): datetime instance
+        limit (int, optional): _description_. Defaults to 5000.
+
+    Returns:
+        pd.DataFrame: df with columns: ['v', 'vw', 'o', 'close', 'h', 'l', 'dt', 'n']
+    """
+
+    start_ts = int(sd.timestamp() * 1000)
+    end_ts = int(ed.timestamp() * 1000)
 
     url = "https://api.polygon.io/v2/aggs"
     url += f"/ticker/{ticker}"
-    url += f"/range/{multiplier}/{time_span}/{sd.strftime(DATE_FORMAT)}/{ed.strftime(DATE_FORMAT)}?sort=asc&limit=1&apiKey={api_key}"
+    url += f"/range/{multiplier}/{time_span}/{start_ts}/{end_ts}?sort=asc&limit={limit}&apiKey={api_key}"
     res = requests.get(url)
 
+    json = res.json()
+
     if res.status_code == 200:
-        df = pd.DataFrame(res.json()["results"])
-        df.rename(columns={"c": "close", "dt": "t"}, inplace=True)
-        df["dt"] = pd.to_datetime(df["dt"])
+        df = pd.DataFrame(json["results"])
+        df.drop(columns=["h", "l", "o"], inplace=True)
+        df.rename(
+            columns={
+                "v": "volume",
+                "vw": "volume_weighted_price",
+                "c": "close",
+                "t": "dt",
+                "n": "transaction_number",
+            },
+            inplace=True,
+        )
+        df["dt"] = pd.to_datetime(df["dt"], unit="ms")
         return df
 
     if res.status_code == 404:
         return None
+
+
+# import requests
+
+# url = f"https://api.polygon.io/v2/aggs/ticker/O:SPY220107P00475000/range/10/minute/1641315600000/1641330000000?adjusted=true&sort=asc&limit=240&apiKey=KwW950PZLa1uz5n5sWmzMzzNQj6ZjQun"
+# # res = requests.get(url)
+# # print(res.status_code)
+# # json = res.json()
+# # print(json)
+# # data = json["results"]
+
+# # df = pd.DataFrame(data=data)
+# # df['ts'] = ts
+# # df['te'] = te
+# # df['tdiff'] = (df['t'] - df['ts'])/1_000/3600
+# # df['th'] = pd.to_datetime(df['t']* 1_000_000)
+
+# # df
+
+# config.polygon_api_key

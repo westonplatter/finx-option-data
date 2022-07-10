@@ -12,8 +12,8 @@ from finx_option_data.stock_quote_fetch_agent import StockQuoteFetchAgent
 sagent = StockQuoteFetchAgent(
     polygon_api_key=config.polygon_api_key, engine=config.engine_metrics
 )
-sd = pd.to_datetime("2022-01-21")
-ed = sd + timedelta(days=60)
+sd = pd.to_datetime("2022-2-25")
+ed = pd.to_datetime("2022-6-30")
 prices = sagent.query_prices("SPY", sd, ed)
 prices.sort_values("dt", inplace=True)
 

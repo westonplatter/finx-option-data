@@ -38,3 +38,5 @@ data
 notebooks/
 
 *test_script*
+
+*.png
