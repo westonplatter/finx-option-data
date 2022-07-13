@@ -157,23 +157,3 @@ def aggs(
 
     if res.status_code == 404:
         return None
-
-
-# import requests
-
-# url = f"https://api.polygon.io/v2/aggs/ticker/O:SPY220107P00475000/range/10/minute/1641315600000/1641330000000?adjusted=true&sort=asc&limit=240&apiKey=KwW950PZLa1uz5n5sWmzMzzNQj6ZjQun"
-# # res = requests.get(url)
-# # print(res.status_code)
-# # json = res.json()
-# # print(json)
-# # data = json["results"]
-
-# # df = pd.DataFrame(data=data)
-# # df['ts'] = ts
-# # df['te'] = te
-# # df['tdiff'] = (df['t'] - df['ts'])/1_000/3600
-# # df['th'] = pd.to_datetime(df['t']* 1_000_000)
-
-# # df
-
-# config.polygon_api_key

@@ -63,7 +63,3 @@ for ix, row in prices.iterrows():
                 ticker, dt = contract["ticker"], sd
                 oagent.ingest_prices_to_exp(ticker, dt)
                 print(".", end="", flush=True)
-
-# dt = pd.to_datetime("2022-01-03")
-# ticker = "O:SPY220207C00460000"
-# oagent.ingest_prices_to_exp(ticker, dt)
