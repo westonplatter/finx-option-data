@@ -12,6 +12,7 @@ from finx_option_data.transforms import (
 from finx_option_data.utils import _market_days_between
 
 
+
 def gen_fm_calendars(config: Config, underlying_ticker: str, dt: pd.Timestamp) -> None:
     query = sa.text(
         """
