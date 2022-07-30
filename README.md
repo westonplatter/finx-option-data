@@ -36,19 +36,6 @@ TDA_REDIRECT_URL=http://localhost
 DISCORD_CHANNEL_URL="https://discord.com/api/webhooks/123/abc-xyz"
 ```
 
-## ReWrite Todos
-
-- [ ] setup.py file and python folder structure for `finx_option_data`
-- [ ] move methods into finx_option_data
-    - [ ] handler.py 
-    - [ ] post_process_handler.py
-    - [ ] handler_download_data.py
-    - [ ] configure.py
-- [ ] decide what to do with methods in cli.py
-- [ ] separate logic into sections, 
-    - AWS CRUD operations
-    - TDA API operations
-    - finx_option_data intelligent operations
-    - utility ops (glue)
+## Todos
 - [ ] create better setup instructions
 - [ ] setup integration tests
