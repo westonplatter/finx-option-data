@@ -8,19 +8,13 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 deps = [
-    # "boto3",
-    # "fsspec",
-    # "heroku3",
     "loguru",
     "pandas>1.2, <1.4",
     "psycopg2-binary",
-    # "pyarrow",
     "python-dotenv",
     "pytz",
     "requests",
-    # "s3fs",
     "sqlalchemy",
-    # "tda-api",
 ]
 
 test_deps = ["pytest"]

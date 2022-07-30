@@ -107,9 +107,11 @@ def generic_timespread_generator(input_df: pd.DataFrame, dte_diff: int, back_wee
     Returns:
         df(pd.DataFrame): with columns = ["ticker_f", "ticker_b", "id_f", "id_b", "desc"]
     """
-    description = f"{dte_diff}_calendar"
-
     df = input_df.copy()
+    
+    underlying_ticker = df["underlying_ticker"].unique()[0]
+    description = f"{dte_diff}d_calendar_{underlying_ticker.lower()}"
+
     df['front_option_id'] = None
     for _, grouped in df.groupby(["strike", "option_type"]):
         for idx, row in grouped.iterrows():
@@ -151,4 +153,19 @@ def gen_friday_and_following_friday(input_df):
     """
     dte_diff = 7
     back_weekday = 0
+    return generic_timespread_generator(input_df, dte_diff, back_weekday)
+
+
+def gen_monday_and_following_friday(input_df):
+    """
+    Generate df with pointers (id and polygon option tickers) for -front=Monday +back=Friday
+
+    Input:
+        input_df(pd.DataFrame): df
+
+    Returns:
+        df(pd.DataFrame): with columns = ["ticker_f", "ticker_b", "id_f", "id_b", "desc"]
+    """
+    dte_diff = 4
+    back_weekday = 4
     return generic_timespread_generator(input_df, dte_diff, back_weekday)
