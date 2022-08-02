@@ -20,7 +20,7 @@ class StockQuoteFetchAgent(object):
         self.engine = engine
         self.throttle_api_requests = throttle_api_requests
 
-    def ingest_price(self, ticker, sd, ed):
+    def ingest_price(self, ticker: str, sd, ed):
         df = self.calc_missing_prices(ticker, sd, ed)
         df['ticker'] = ticker
         df['open'] = None
@@ -48,7 +48,7 @@ class StockQuoteFetchAgent(object):
         
         df_insert_do_nothing(df, self.engine, StockQuote)
 
-    def query_prices(self, ticker, sd, ed) -> pd.DataFrame:
+    def query_prices(self, ticker: str, sd: pd.Timestamp, ed: pd.Timestamp) -> pd.DataFrame:
         query = sa.text("select * from stock_quotes where :sd <= dt and dt <= :ed and ticker = :ticker and fetched = true")
         modified_sd = sd.replace(hour=0)
         modified_ed = ed.replace(hour=23)
@@ -56,7 +56,7 @@ class StockQuoteFetchAgent(object):
         with self.engine.connect() as con:
             return pd.read_sql(query, con=con, params=query_params)
         
-    def calc_missing_prices(self, ticker, sd, ed):
+    def calc_missing_prices(self, ticker: str, sd: pd.Timestamp, ed: pd.Timestamp) -> pd.DataFrame:
         quotes = self.query_prices(ticker, sd, ed)
         schedule = _market_schedule_between(sd, ed)
         missing_dates = schedule[~schedule.market_close.isin(quotes.dt)]
