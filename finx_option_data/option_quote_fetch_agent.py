@@ -77,6 +77,7 @@ class OptionQuoteFetchAgent(object):
 
         exp_date = pd.to_datetime(contract_details["expiration_date"])
 
+        # find missing option quotes
         market_closes = _market_closes_between(dt, exp_date)
         sd, ed = market_closes[0], market_closes[-1]
         ed_missing_quotes = ed - timedelta(days=1)
