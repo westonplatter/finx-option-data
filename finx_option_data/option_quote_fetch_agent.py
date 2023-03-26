@@ -1,3 +1,4 @@
+import time
 from typing import Dict, Tuple, List, Union
 
 from datetime import timedelta
@@ -11,6 +12,7 @@ from finx_option_data.models import OptionQuote
 from finx_option_data.stock_quote_fetch_agent import StockQuoteFetchAgent
 from finx_option_data.utils import _market_schedule_between, _market_closes_between
 from finx_option_data.polygon_helpers import (
+    aggs,
     open_close,
     reference_options_contract_by_ticker_asof,
 )
@@ -31,18 +33,10 @@ class OptionQuoteFetchAgent(object):
         self.engine = engine
         self.throttle_api_requests = throttle_api_requests
 
-    def fetch_contracts_by_params_delta_range_and_dte(
-        self,
-        underlying_ticker: str,
-        dt: pd.Timestamp,
-        delta_range: Tuple[float],
-        dte: int,
-        call_put: int = None,
-    ):
-        # todo fetch close price on dt
-        # todo fetch contract for ATM call and ATM put
-        pass
-
+    def throttle_if_needed(self):
+        if self.throttle_api_requests:
+            time.sleep(20)
+    
     def fetch_options_contracts(
         self,
         dt: pd.Timestamp,
@@ -51,7 +45,10 @@ class OptionQuoteFetchAgent(object):
         strike: float,
         dte: int,
     ) -> Union[None, List[Dict]]:
-        """Fetch option contracts. Return list of dictionaries from polygon's API"""
+        """
+        Fetch option contracts.
+        Return list of dictionaries from polygon's API
+        """
         return reference_options_contracts(
             api_key=self.polygon_api_key,
             underlying_ticker=underlying_ticker,
@@ -61,6 +58,35 @@ class OptionQuoteFetchAgent(object):
             exp_date_lte=(dt.date() + timedelta(days=dte)),
         )
 
+    def fetch_options_contracts_df(
+        self,
+        dt: pd.Timestamp,
+        underlying_ticker: str,
+        option_type: str,
+        strike: float,
+        dte: int,
+    ) -> Union[None, List[Dict]]:
+        dicts = self.fetch_options_contracts(dt, underlying_ticker, option_type, strike, dte)
+        if dicts is None:
+            return None
+        df = pd.DataFrame(dicts)
+        df.expiration_date = pd.to_datetime(df.expiration_date)
+        return df
+
+    def fetch_option_quotes_between(self, ticker: str, sd: pd.Timestamp, ed: pd.Timestamp):
+        market_closes = _market_closes_between(sd, ed)
+        now = pd.Timestamp.utcnow()
+        market_closes = list(filter(lambda x: x <= now, market_closes))
+
+        quotes = []
+
+        for ts in market_closes:
+            self.throttle_if_needed()
+            data = open_close(self.polygon_api_key, ticker, ts)
+            quotes.append(data)
+        
+        return quotes
+    
     def ingest_prices_to_exp(self, ticker: str, dt: pd.Timestamp) -> None:
         """Fetch and save option prices to DB
 
@@ -77,6 +103,7 @@ class OptionQuoteFetchAgent(object):
 
         exp_date = pd.to_datetime(contract_details["expiration_date"])
 
+        # find missing option quotes
         market_closes = _market_closes_between(dt, exp_date)
         sd, ed = market_closes[0], market_closes[-1]
         ed_missing_quotes = ed - timedelta(days=1)

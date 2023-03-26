@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Union
 
 import pandas as pd
@@ -67,6 +67,11 @@ def reference_options_contracts(
     url += f"&apiKey={api_key}"
     url += f"&as_of={as_of.strftime(DATE_FORMAT)}"
     url += f"&expiration_date.lte={exp_date_lte.strftime('%Y-%m-%d')}"
+
+    debug = False
+    if debug:
+        print("reference_options_contracts url", url)
+
     res = requests.get(url)
 
     if res.status_code == 200:
@@ -91,6 +96,8 @@ def open_close(api_key, ticker: str, date: date) -> Union[None, Dict]:
     url = f"https://api.polygon.io/v1/open-close/{ticker}/{date}?adjusted=true&apiKey={api_key}"
     res = requests.get(url)
 
+    res.raise_for_status()
+
     if res.status_code == 200:
         return res.json()
 
@@ -108,19 +115,20 @@ def open_close(api_key, ticker: str, date: date) -> Union[None, Dict]:
 def aggs(
     api_key,
     ticker: str,
-    multiplier: int,
     time_span: str,
     sd: datetime,
     ed: datetime,
+    multiplier: int=1,
     limit: int = 5000,
 ) -> pd.DataFrame:
-    """Fetch aggregated data.
+    """
+    Fetch aggregated data.
 
     Args:
         api_key (str): _description_
         ticker (str): _description_
         multiplier (int): _description_
-        time_span (str): _description_
+        time_span (str): Eg, day 
         sd (datetime): datetime instance, utc
         ed (datetime): datetime instance
         limit (int, optional): _description_. Defaults to 5000.
@@ -129,14 +137,23 @@ def aggs(
         pd.DataFrame: df with columns: ['v', 'vw', 'o', 'close', 'h', 'l', 'dt', 'n']
     """
 
-    start_ts = int(sd.timestamp() * 1000)
-    end_ts = int(ed.timestamp() * 1000)
+    # start_ts = int(sd.timestamp() * 1000)
+    # end_ts = int(ed.timestamp() * 1000)
+
+    if isinstance(sd, datetime):
+        sd = int((sd-timedelta(days=1)).timestamp())
+    
+    if isinstance(ed, datetime):
+        ed = int(ed.timestamp())
 
     url = "https://api.polygon.io/v2/aggs"
     url += f"/ticker/{ticker}"
-    url += f"/range/{multiplier}/{time_span}/{start_ts}/{end_ts}?sort=asc&limit={limit}&apiKey={api_key}"
+    url += f"/range/{multiplier}/{time_span}"
+    url += f"/{sd}/{ed}"
+    url += f"?adjusted=true&sort=asc&limit={limit}&apiKey={api_key}"
     res = requests.get(url)
 
+    res.raise_for_status()
     json = res.json()
 
     if res.status_code == 200:

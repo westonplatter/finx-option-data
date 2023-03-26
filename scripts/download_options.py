@@ -12,9 +12,10 @@ from finx_option_data.stock_quote_fetch_agent import StockQuoteFetchAgent
 sagent = StockQuoteFetchAgent(
     polygon_api_key=config.polygon_api_key, engine=config.engine_metrics
 )
-sd = pd.to_datetime("2022-2-25")
-ed = pd.to_datetime("2022-6-30")
-prices = sagent.query_prices("SPY", sd, ed)
+sd = pd.to_datetime("2022-7-1")
+ed = pd.to_datetime("2022-7-10")
+stock_ticker = "SPY"
+prices = sagent.query_prices(stock_ticker, sd, ed)
 prices.sort_values("dt", inplace=True)
 
 oagent = OptionQuoteFetchAgent(
@@ -50,16 +51,15 @@ for ix, row in prices.iterrows():
         print(f"strike={strike}", flush=True)
         for option_type in ["call", "put"]:
             contracts = oagent.fetch_options_contracts(
-                relative_sd, "SPY", option_type, strike, dte=30
+                relative_sd, stock_ticker, option_type, strike, dte=40
             )
             for contract in contracts:
                 exp_date = pd.to_datetime(contract["expiration_date"])
 
                 # only collect option quotes for contracts that expire on Monday and Friday
                 if exp_date.date().weekday() not in [0, 4]:
-                    print("-", end="", flush=True)
                     continue
 
                 ticker, dt = contract["ticker"], sd
+                print(f"\n- {option_type} {exp_date.date()}", end="", flush=True)
                 oagent.ingest_prices_to_exp(ticker, dt)
-                print(".", end="", flush=True)

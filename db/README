@@ -1,6 +1,8 @@
-# Option Data - database
+# Finx Option Data - DB Docs
 
-## Adding migration
+## How Tos
+
+### Adding migration
 ```
 alembic migrate -m "describe your changes"
 # write upgrade and downgrade logic
@@ -8,7 +10,7 @@ alembic upgrade head
 # or alembic upgrade head +1
 ```
 
-## Downgrading
+### Downgrading migration
 
 ```
 alembic downgrade -1
