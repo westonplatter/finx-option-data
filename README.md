@@ -4,9 +4,8 @@ Fetch, store, manipulate, and store option data from vendors.
 **WARNING - software is in alpha status. Expect the API to change.**
 
 ## Vendors
-[x] Polygon
-[ ] TDAmeritrade
-[ ] IBKR (via local API gateway)
+- [x] Polygon
+
 
 # Quick setup
 This repo is designed in conjunction with https://github.com/westonplatter/finx-option-pricer.
@@ -35,9 +34,5 @@ pip install -e .
 - [ ] separate logic into sections, 
   - [ ] polygon API operations
   - [ ] AWS CRUD operations
-  - [ ] TDA API operations
   - [ ] finx_option_data intelligent operations
   - [ ] utility ops (glue)
-
-## License
-See LICENSE file. BSD 3-Clause
