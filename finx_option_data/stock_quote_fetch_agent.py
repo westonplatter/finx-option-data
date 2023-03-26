@@ -85,8 +85,3 @@ class StockQuoteFetchAgent(object):
             .drop('market_open', axis=1)
             .rename(columns={"market_close": "dt"}))
         return df
-
-
-
-
-

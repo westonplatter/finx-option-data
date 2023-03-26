@@ -1,26 +1,43 @@
 # finx-option-data
 Fetch, store, manipulate, and store option data from vendors.
 
-## Quick start
+**WARNING - software is in alpha status. Expect the API to change.**
 
-```sh
-cd ../finx-option-pricer && pip install -e . && cd finx-option-data
+## Vendors
+[x] Polygon
+[ ] TDAmeritrade
+[ ] IBKR (via local API gateway)
+
+# Quick setup
+This repo is designed in conjunction with https://github.com/westonplatter/finx-option-pricer.
+Therefore, you'll need both FOD (finx-option-data) and FOP (finx-option-pricer)
+```
+# install option pricer
+git clone git@github.com:westonplatter/finx-option-pricer.git
+cd finx-option-pricer
+pip install -e .
+cd ..
+
+# install this repo, finx-option-data
+git clone git@github.com:westonplatter/finx-option-data.git
+cd finx-option-data
+cd ../finx-option-data
 pip install -e .
 ```
 
-## ReWrite Todos
+## Quick start
+1. Copy over sample `.env.sample` to `.env.prod`
+2. Run example file, `python finx_option_data/x_fetch.py`
 
+
+## ReWrite Todos
 - [x] setup.py file and python folder structure for `finx_option_data`
-- [ ] move methods into finx_option_data
-    - [ ] handler.py 
-    - [ ] post_process_handler.py
-    - [ ] handler_download_data.py
-    - [ ] configure.py
-- [ ] decide what to do with methods in cli.py
 - [ ] separate logic into sections, 
-    - AWS CRUD operations
-    - TDA API operations
-    - finx_option_data intelligent operations
-    - utility ops (glue)
-- [ ] create better setup instructions
-- [ ] setup integration tests
+  - [ ] polygon API operations
+  - [ ] AWS CRUD operations
+  - [ ] TDA API operations
+  - [ ] finx_option_data intelligent operations
+  - [ ] utility ops (glue)
+
+## License
+See LICENSE file. BSD 3-Clause
