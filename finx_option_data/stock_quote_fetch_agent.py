@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import pandas as pd
 import sqlalchemy as sa
@@ -21,8 +21,16 @@ class StockQuoteFetchAgent(object):
         self.engine = engine
         self.throttle_api_requests = throttle_api_requests
 
+    def fetch_price(self, ticker: str, dt: pd.Timestamp) -> Union[None, Dict]:
+        if self.throttle_api_requests:
+            time.sleep(20.0)
+        date = dt.date()
+        data = open_close(self.polygon_api_key, ticker, date)
+        return data
+
     def ingest_price(self, ticker: str, sd: pd.Timestamp, ed: pd.Timestamp) -> None:
-        """Fetch stock price and store in database (if not already there)
+        """
+        Fetch stock price and store in database (if not already there)
 
         Args:
             ticker (str): stock ticker, e.g. "SPY"
@@ -37,16 +45,13 @@ class StockQuoteFetchAgent(object):
         df['low'] = None
         df['fetched'] = None
 
-        # foe each row, fetch price and update dataframe columns
+        # for each row, fetch price and update DataFrame columns
         for ix, row in df.iterrows():
-            if self.throttle_api_requests:
-                print(".", end="", flush=True)
-                time.sleep(12.0)
-            date = row['dt'].date()
-            data = open_close(self.polygon_api_key, ticker, date)
+            data = self.fetch_price(ticker, row['dt'])
+            
             if data is None:
                 df.drop([ix]) # drop row if data is None
-                continue
+            
             row["open"] = data["open"]
             row["close"] = data["close"]
             row["high"] = data["high"]
